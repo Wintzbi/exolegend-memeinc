@@ -53,7 +53,7 @@ void loop()
         }
 
         // Il est possible de réccupérer les données d'une case en sachant les index i et j de celle-ci
-        unsigned char i = 5, j = 12;
+        unsigned char i = 5, j = 11;
         const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j); // GFA 4.7.1
         // Obtenir les données de pièce de la case
         Coin coin = indexedSquare->coin;
