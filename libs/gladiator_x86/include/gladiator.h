@@ -26,10 +26,10 @@ class Robot
 class Control
 {
   public:
-    void setWheelSpeed(WheelAxis wheelAxis, double speed);
-    void setWheelSpeed(WheelAxis wheelAxis, double speed, bool reset);
-    double getWheelSpeed(WheelAxis wheelAxis);
-    void setWheelPidCoefs(WheelAxis wheelAxis, float Kp, float Ki, float Kd);
+    void setWheelSpeed(const WheelAxis wheelAxis, const double speed);
+    void setWheelSpeed(const WheelAxis wheelAxis, const double speed, const bool reset);
+    double getWheelSpeed(const WheelAxis wheelAxis);
+    void setWheelPidCoefs(const WheelAxis wheelAxis, const double Kp, const double Ki, const double Kd);
 };
 
 class Weapon

@@ -1,6 +1,6 @@
 #include "gladiator.h"
 Gladiator *gladiator;
-uint cycle = 0;
+int cycle = 0;
 int dir = 1;
 unsigned long lasttime = 0;
 void reset();
