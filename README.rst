@@ -247,7 +247,7 @@ Lancer le simulateur
 
         .. code-block:: bash
             
-            ./launcher.bat
+            ./launch_virtual.bat
 
 
 Si les deux fenêtres s'affichent comme ci-dessous; c'est que vous avez
