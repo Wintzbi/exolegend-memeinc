@@ -4,8 +4,8 @@
 .. |git_exolegend| replace:: git@gitlab.com:exolegend/exolegend.git
 .. |git_exolegend_win| replace:: git@gitlab.com:exolegend/exolegend-win.git
 
-.. |version| replace:: 3.0.4-rc1
-.. |virtuals_password| replace:: __LeM0tDePa55eLePlusS1mpleDuM0nde_!!!_;)
+.. |version| replace:: 3.0.6-xxxxx
+.. |virtuals_password| replace:: __LeM0tDePa55eLePlusS1mpleDuM0nde_!!!!!_;)
 
 
 
