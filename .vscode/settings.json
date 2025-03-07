@@ -1,6 +1,5 @@
 {
     "files.associations": {
-<<<<<<< HEAD
         "list": "cpp",
         "any": "cpp",
         "array": "cpp",
@@ -92,9 +91,7 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "variant": "cpp"
-=======
         "*.embeddedhtml": "html",
         "cmath": "cpp"
->>>>>>> b26650e2301a214ffcd52eb64df314d748906de3
     }
 }
