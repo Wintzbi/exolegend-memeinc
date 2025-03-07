@@ -214,6 +214,15 @@ void loop()
 
             
         }
+
+         float squareSize = gladiator->maze->getSquareSize();
+        int i_bomb= (LastBombToGet.x/squareSize)-0.5;
+        int j_bomb= (LastBombToGet.y/squareSize)-0.5;
+        const MazeSquare *indexedSquare = gladiator->maze->getSquare(i_bomb, j_bomb);
+            Coin coin = indexedSquare->coin;
+            if (coin.value > 0){
+                    UpdateNearestBomb=false;
+                    }
         //aim(gladiator,{LastBombToGet.x,LastBombToGet.y},false);
         Position myPosition = gladiator->robot->getData().position;
 
