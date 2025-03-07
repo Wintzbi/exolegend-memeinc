@@ -66,6 +66,7 @@ void convert(unsigned int i, unsigned int j) {
 Position BombPos[MAX_BOMB];
 
 void BombListing() {
+    
     int index = 0;
     // Réinitialisation de la liste
     for (int i = 0; i < MAX_BOMB; i++) {
@@ -82,10 +83,12 @@ void BombListing() {
                     BombPos[index] = posCoin;  // Ajout à la liste
                     index++;  // Incrémentation de l'indice
                 }
-                    gladiator->log("position pièce : ( %f; %f )", posCoin.x, posCoin.y);
+                    gladiator->log("position bombe : ( %f; %f )", posCoin.x, posCoin.y);
             }
         }
     }
+    gladiator->log("Bomb listing updated.");
+
 }
 
 
@@ -110,6 +113,7 @@ void loop()
         RobotData myData = gladiator->robot->getData();
         Position targetBomb = { -1, -1 };
         double minDistance = 9999;
+        BombListing();
 
         for (int i = 0; i < MAX_BOMB; i++) {
             if (BombPos[i].x != -1 && BombPos[i].y != -1) {
@@ -125,6 +129,8 @@ void loop()
         }
 
         if (targetBomb.x != -1 && targetBomb.y != -1) {
+            gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, minDistance);
+
             double dx = targetBomb.x - myData.position.x;
             double dy = targetBomb.y - myData.position.y;
             double targetAngle = atan2(dy, dx);
