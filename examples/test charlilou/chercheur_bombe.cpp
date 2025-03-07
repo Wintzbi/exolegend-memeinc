@@ -5,13 +5,13 @@ void reset();
 bool UpdateNearestBomb=true;
 Position LastBombToGet;
 // Constantes de contrôle
-float kw = 1.3;
-float kv = 1.f;
-float wlimit = 1.f;
-float vlimit = 0.7;
-float k_forward = 1.0;
-float k_angular = 1.2;
-float erreurPos = 0.07;
+
+float kw = 4.f;
+float kv = 4.f;
+float wlimit = 3.f;
+float vlimit = 2;
+float erreurPos = 0.05;
+
 typedef struct PathList {
     int x, y;
     int value;
@@ -34,57 +34,11 @@ inline float moduloPi(float a) // return angle in [-pi; pi]
 {
     return (a < 0.0) ? (std::fmod(a - M_PI, 2 * M_PI) + M_PI) : (std::fmod(a + M_PI, 2 * M_PI) - M_PI);
 }
-inline bool aim(Gladiator *gladiator, const Vector2 &target, bool showLogs)
+
+
+void go_to(Position cons, Position pos)
 {
-    constexpr float ANGLE_REACHED_THRESHOLD = 0.1;
-    constexpr float POS_REACHED_THRESHOLD = 0.05;
-
-    auto posRaw = gladiator->robot->getData().position;
-    Vector2 pos{posRaw.x, posRaw.y};
-
-    Vector2 posError = target - pos;
-
-    float targetAngle = posError.angle();
-    float angleError = moduloPi(targetAngle - posRaw.a);
-
-    bool targetReached = false;
-    float leftCommand = 0.f;
-    float rightCommand = 0.f;
-
-    if (posError.norm2() < POS_REACHED_THRESHOLD) //
-    {
-        targetReached = true;
-        UpdateNearestBomb=true;
-    }
-    else if (std::abs(angleError) > ANGLE_REACHED_THRESHOLD)
-    {
-        float factor = 0.2;
-        if (angleError < 0)
-            factor = -factor;
-        rightCommand = factor;
-        leftCommand = -factor;
-    }
-    else
-    {
-        float factor = 0.5;
-        rightCommand = factor; //+angleError*0.1  => terme optionel, "pseudo correction angulaire";
-        leftCommand = factor;  //-angleError*0.1   => terme optionel, "pseudo correction angulaire";
-    }
-
-    gladiator->control->setWheelSpeed(WheelAxis::LEFT, leftCommand);
-    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, rightCommand);
-
-    if (showLogs || targetReached)
-    {
-        gladiator->log("ta %f, ca %f, ea %f, tx %f cx %f ex %f ty %f cy %f ey %f", targetAngle, posRaw.a, angleError,
-                       target.x(), pos.x(), posError.x(), target.y(), pos.y(), posError.y());
-    }
-
-    return targetReached;
-}
-
-void go_to(const Position &cons, const Position &pos)
-{
+    double consvl, consvr;
     double dx = cons.x - pos.x;
     double dy = cons.y - pos.y;
     double d = sqrt(dx * dx + dy * dy);
@@ -93,29 +47,24 @@ void go_to(const Position &cons, const Position &pos)
     {
         double rho = atan2(dy, dx);
         double consw = kw * reductionAngle(rho - pos.a);
+
         double consv = kv * d * cos(reductionAngle(rho - pos.a));
+        consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+        consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
 
-        consw = std::min(static_cast<double>(my_max(consw, -wlimit)), static_cast<double>(wlimit)) * k_angular;
-        consv = std::min(static_cast<double>(my_max(consv, -vlimit)), static_cast<double>(vlimit)) * k_forward;
-
-        double consvl = consv - gladiator->robot->getRobotRadius() * consw;
-        double consvr = consv + gladiator->robot->getRobotRadius() * consw;
-
-        if (consvl == 0.0 && consvr == 0.0)
-        {
-            consvr = wlimit;
-        }
-
-        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false);
-        gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);
+        consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+        consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
     }
     else
     {
-        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0, false);
-        gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0, false);
+        consvr = 0;
+        consvl = 0;
         UpdateNearestBomb=true;
 
     }
+
+    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
+    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
 
 void convert(unsigned int i, unsigned int j) {
@@ -178,12 +127,13 @@ void reset()
 }
 
 void loop()
-{   if (gladiator->weapon->canDropBombs(1)) {
+{   
+    if (gladiator->game->isStarted()) {
+        if (gladiator->weapon->canDropBombs(1)) {
             // Dropper une bombe
             gladiator->weapon->dropBombs(1);
             gladiator->log("Drop bomb");
         }
-    if (gladiator->game->isStarted()) {
         RobotData myData = gladiator->robot->getData();
         Position targetBomb = { -1, -1 };
         double minDistance = 9999;
@@ -228,10 +178,8 @@ void loop()
         if (coin.value < 1 || danger >2){
                 UpdateNearestBomb=true;
             }
-        //aim(gladiator,{LastBombToGet.x,LastBombToGet.y},false);
 
         Position myPosition = gladiator->robot->getData().position;
-
         go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
         gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
         delay(100);
