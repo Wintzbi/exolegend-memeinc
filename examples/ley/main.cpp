@@ -167,6 +167,7 @@ void loop()
                 }
             }
         }
+        //commit
          
         Position position = myData.position;
         if (targetBomb.x != -1 && targetBomb.y != -1) {
