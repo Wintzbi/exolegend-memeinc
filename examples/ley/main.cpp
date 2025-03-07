@@ -71,15 +71,49 @@ void BombListing() {
             Coin coin = indexedSquare->coin;
             if (coin.value > 0){
                     Position posCoin = coin.p;
-                    gladiator->log("position pièce : ( %f; %f )", posCoin.x, posCoin.y);
             }
         }
+    }
+}
+
+int getDistance(unsigned int i, unsigned int j, unsigned int x, unsigned int y){
+    int distance = sqrt((i -x) * (i - x) +
+                                    (j - y) * (j - y));
+    return distance;
+}
+
+void move_nearest(){
+    Position myPosition = gladiator->robot->getData().position;
+    const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
+
+    MazeSquare* neighbors[4] = {nearestSquare->northSquare, nearestSquare->westSquare,
+                                    nearestSquare->eastSquare, nearestSquare->southSquare};
+
+    int minIndex = -1;
+    int minDistance = std::numeric_limits<unsigned int>::max();
+        
+    for (int i = 0; i < 4; ++i) {
+        if (neighbors[i] != nullptr) {
+            int distance = getDistance(neighbors[i]->i, neighbors[i]->j, 5, 6);
+            if (distance < minDistance) {
+                    minDistance = distance;
+                    minIndex = i;
+                }
+            } else if (minIndex == -1) {
+                minIndex = i;
+            }
+        }
+
+        // Déplacement vers la case la plus proche
+        if (minIndex != -1) {
+            convert(neighbors[minIndex]->i,neighbors[minIndex]->j);
     }
 }
 
 
 void setup()
 {
+    
     // instanciation de l'objet gladiator
     gladiator = new Gladiator();
     // enregistrement de la fonction de reset qui s'éxecute à chaque fois avant qu'une partie commence
@@ -104,7 +138,7 @@ void loop()
         gladiator->log("Hello world - Game Started"); // GFA 4.5.1
         gladiator->log("mazeSize: %f", mazeSize);
         gladiator->log("cordonnée actuelle: %u, %u", nearestSquare->i, nearestSquare->j);
-        BombListing();
+        move_nearest();
 
     }
     else
