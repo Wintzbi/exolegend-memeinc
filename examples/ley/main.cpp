@@ -5,9 +5,8 @@ void reset();
 float kw = 1.2;
 float kv = 1.f;
 float wlimit = 3.f;
-float vlimit = 0.6;
+float vlimit = 0.7;
 float erreurPos = 0.07;
-
 typedef struct PathList {
     int x, y;
     int value;
@@ -63,57 +62,39 @@ void convert(unsigned int i, unsigned int j) {
     Position goal{centerCoor.x, centerCoor.y, 0};
     go_to(goal, myPosition);
 }
+#define MAX_BOMB 20
+Position BombPos[MAX_BOMB];
 
 void BombListing() {
+    
+    int index = 0;
+    // Réinitialisation de la liste
+    for (int i = 0; i < MAX_BOMB; i++) {
+        BombPos[i].x = -1;
+        BombPos[i].y = -1;
+    }
     for(int i=0;i<=11;i++){
         for(int j=0;j<=11;j++){
             const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
             if (coin.value > 0){
                     Position posCoin = coin.p;
-            }
-        }
-    }
-}
-
-int getDistance(unsigned int i, unsigned int j, unsigned int x, unsigned int y){
-    int distance = sqrt((i -x) * (i - x) +
-                                    (j - y) * (j - y));
-    return distance;
-}
-
-void move_nearest(){
-    Position myPosition = gladiator->robot->getData().position;
-    const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
-
-    MazeSquare* neighbors[4] = {nearestSquare->northSquare, nearestSquare->westSquare,
-                                    nearestSquare->eastSquare, nearestSquare->southSquare};
-
-    int minIndex = -1;
-    int minDistance = std::numeric_limits<unsigned int>::max();
-        
-    for (int i = 0; i < 4; ++i) {
-        if (neighbors[i] != nullptr) {
-            int distance = getDistance(neighbors[i]->i, neighbors[i]->j, 5, 6);
-            if (distance < minDistance) {
-                    minDistance = distance;
-                    minIndex = i;
+                if ( index < MAX_BOMB) {
+                    BombPos[index] = posCoin;  // Ajout à la liste
+                    index++;  // Incrémentation de l'indice
                 }
-            } else if (minIndex == -1) {
-                minIndex = i;
+                    gladiator->log("position bombe : ( %f; %f )", posCoin.x, posCoin.y);
             }
         }
-
-        // Déplacement vers la case la plus proche
-        if (minIndex != -1) {
-            convert(neighbors[minIndex]->i,neighbors[minIndex]->j);
     }
+    gladiator->log("Bomb listing updated.");
+
 }
+
 
 
 void setup()
 {
-    
     // instanciation de l'objet gladiator
     gladiator = new Gladiator();
     // enregistrement de la fonction de reset qui s'éxecute à chaque fois avant qu'une partie commence
@@ -127,23 +108,81 @@ void reset()
     gladiator->log("Call of reset function"); // GFA 4.5.1
 }
 
+Position lastGoal{-1, -1,0};
+
 void loop()
 {
-    if (gladiator->game->isStarted())
-    { // tester si un match à déjà commencer
-        // code de votre stratégie
-        float mazeSize = gladiator->maze->getCurrentMazeSize();
-        const MazeSquare *nearestSquare = gladiator->maze->getNearestSquare();
+    if (gladiator->game->isStarted()) {
 
-        gladiator->log("Hello world - Game Started"); // GFA 4.5.1
-        gladiator->log("mazeSize: %f", mazeSize);
-        gladiator->log("cordonnée actuelle: %u, %u", nearestSquare->i, nearestSquare->j);
-        move_nearest();
+        if (gladiator->weapon->canDropBombs(1)) {
+            gladiator->weapon->dropBombs(1);
+            gladiator->log("Drop bomb");
+        }
+ 
+        RobotData myData = gladiator->robot->getData();
+        Position targetBomb = { 1.5, 1.5 };
+        double minDistance = 9999;
+        BombListing();
 
+        const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
+
+        MazeSquare* neighbors[4] = {nearestSquare->northSquare, nearestSquare->westSquare,
+                                    nearestSquare->eastSquare, nearestSquare->southSquare};
+        Position centerCoords[4];
+        float squareSize = gladiator->maze->getSquareSize();
+
+        for (int i = 0; i < MAX_BOMB; i++) {
+            if (BombPos[i].x != -1 && BombPos[i].y != -1) {
+                double dx = BombPos[i].x - myData.position.x;
+                double dy = BombPos[i].y - myData.position.y;
+                double distance = sqrt(dx * dx + dy * dy);
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    targetBomb = BombPos[i];
+                }
+            }
+        }
+         
+        // Calcul des positions centrales des voisins
+        for (int i = 0; i < 4; ++i) {
+            if (neighbors[i] != nullptr && neighbors[i]->danger <= 3) {
+                centerCoords[i].x = (neighbors[i]->i + 0.5) * squareSize;
+                centerCoords[i].y = (neighbors[i]->j + 0.5) * squareSize;
+            }
+        }
+    
+        int minIndex = -1;
+        float minDistance_calc = std::numeric_limits<float>::max();
+         
+        for (int i = 0; i < 4; ++i) {
+            if (neighbors[i] != nullptr && neighbors[i]->danger <= 3) {
+                float dx = centerCoords[i].x - targetBomb.x;
+                float dy = centerCoords[i].y - targetBomb.y;
+                float distance_calc = sqrt(dx * dx + dy * dy);
+         
+                if (distance_calc < minDistance_calc) {
+                    minDistance_calc = distance_calc;
+                    minIndex = i;
+                }
+            }
+        }
+         
+        Position position = myData.position;
+        if (targetBomb.x != -1 && targetBomb.y != -1) {
+            double dx = targetBomb.x - position.x;
+            double dy = targetBomb.y - position.y;
+            double distanceToBomb = sqrt(dx * dx + dy * dy);
+         
+            gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, distanceToBomb);
+         
+            if (minIndex != -1) {
+                Position goal{centerCoords[minIndex].x, centerCoords[minIndex].y, 0};
+                go_to(goal, position);
+            }
+         
+            gladiator->log("Tracking bomb at (%f, %f)", targetBomb.x, targetBomb.y);
+            delay(100);
+        }
     }
-    else
-    {
-        gladiator->log("Hello world - Game not Startd yet"); // GFA 4.5.1
-    }
-    delay(300);
 }
