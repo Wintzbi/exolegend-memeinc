@@ -145,7 +145,9 @@ void BombListing() {
         for(int j=0;j<=11;j++){
             const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
-            if (coin.value > 0){
+            int danger =indexedSquare->danger;
+            gladiator->log("Case : ( %f; %f ) , danger = %u", coin.p.x, coin.p.y,danger);
+            if (coin.value > 0 && danger <2){
                     Position posCoin = coin.p;
                 if ( index < MAX_BOMB) {
                     BombPos[index] = posCoin;  // Ajout à la liste
@@ -219,11 +221,15 @@ void loop()
         int i_bomb= (LastBombToGet.x/squareSize)-0.5;
         int j_bomb= (LastBombToGet.y/squareSize)-0.5;
         const MazeSquare *indexedSquare = gladiator->maze->getSquare(i_bomb, j_bomb);
-            Coin coin = indexedSquare->coin;
-            if (coin.value > 0){
-                    UpdateNearestBomb=false;
-                    }
+        Coin coin = indexedSquare->coin;
+        /*int danger =indexedSquare->danger;
+        gladiator->log("Case visée: ( %d; %d ) , danger = %u", i_bomb, j_bomb,danger);
+
+        if (coin.value < 1 || danger >2){
+                UpdateNearestBomb=true;
+            }*/
         //aim(gladiator,{LastBombToGet.x,LastBombToGet.y},false);
+
         Position myPosition = gladiator->robot->getData().position;
 
         go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
