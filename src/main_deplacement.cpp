@@ -8,6 +8,13 @@ float wlimit = 3.f;
 float vlimit = 0.6;
 float erreurPos = 0.07;
 
+typedef struct PathList {
+    int x, y;
+    int value;
+} PathList;
+
+PathList* pathList;
+
 double reductionAngle(double x)
 {
     x = fmod(x + PI, 2 * PI);
@@ -57,6 +64,18 @@ void convert(unsigned int i, unsigned int j) {
     go_to(goal, myPosition);
 }
 
+void BombListing() {
+    for(int i=0;i<=11;i++){
+        for(int j=0;j<=11;j++){
+            const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j);
+            Coin coin = indexedSquare->coin;
+            if (coin.value > 0){
+                    Position posCoin = coin.p;
+                    gladiator->log("position pièce : ( %f; %f )", posCoin.x, posCoin.y);
+            }
+        }
+    }
+}
 
 
 void setup()
@@ -82,11 +101,10 @@ void loop()
         float mazeSize = gladiator->maze->getCurrentMazeSize();
         const MazeSquare *nearestSquare = gladiator->maze->getNearestSquare();
 
-        convert(0,11);
-
         gladiator->log("Hello world - Game Started"); // GFA 4.5.1
         gladiator->log("mazeSize: %f", mazeSize);
         gladiator->log("cordonnée actuelle: %u, %u", nearestSquare->i, nearestSquare->j);
+        BombListing();
 
     }
     else
