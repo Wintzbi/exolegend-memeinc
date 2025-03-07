@@ -145,8 +145,7 @@ void BombListing() {
         for(int j=0;j<=11;j++){
             const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
-            int danger = indexedSquare->danger;
-            if (coin.value > 0 || danger <3 ){
+            if (coin.value > 0){
                     Position posCoin = coin.p;
                 if ( index < MAX_BOMB) {
                     BombPos[index] = posCoin;  // Ajout à la liste
@@ -177,8 +176,7 @@ void reset()
 }
 
 void loop()
-{
-       if (gladiator->weapon->canDropBombs(1)) {
+{   if (gladiator->weapon->canDropBombs(1)) {
             // Dropper une bombe
             gladiator->weapon->dropBombs(1);
             gladiator->log("Drop bomb");
@@ -205,8 +203,6 @@ void loop()
                 }
         }
         
-
-                
         if (targetBomb.x != -1 && targetBomb.y != -1) {
             LastBombToGet=targetBomb;
             UpdateNearestBomb=false;
@@ -218,12 +214,6 @@ void loop()
 
             
         }
-        const MazeSquare *indexedSquare = gladiator->maze->getSquare(LastBombToGet.x,LastBombToGet.y);
-            Coin coin = indexedSquare->coin;
-            int danger = indexedSquare->danger;
-            if (coin.value <= 0 || danger <3 ){
-                UpdateNearestBomb=true;
-
         //aim(gladiator,{LastBombToGet.x,LastBombToGet.y},false);
         Position myPosition = gladiator->robot->getData().position;
 
@@ -231,5 +221,4 @@ void loop()
         gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
         delay(100);
     }
-}
 }
