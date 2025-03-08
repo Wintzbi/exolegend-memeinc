@@ -15,6 +15,11 @@ float vlimit = 1.;
 float erreurPos = 0.05;
 float angleThreshold=0.2;
 
+// Déclaration des variables globales
+std::queue<const MazeSquare*> q;
+std::unordered_set<const MazeSquare*> visited;
+std::unordered_map<const MazeSquare*, const MazeSquare*> parent;
+std::vector<const MazeSquare*> path;
 
 double reductionAngle(double x) {
     x = fmod(x + M_PI, 2 * M_PI);
@@ -70,7 +75,7 @@ void go_to(Position cons, Position pos)
     gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
     gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
-void resetLists(std::queue<const MazeSquare*>& q, std::unordered_set<const MazeSquare*>& visited, std::unordered_map<const MazeSquare*, const MazeSquare*>& parent, std::vector<const MazeSquare*>& path) {
+void resetLists() {
     // Réinitialiser les structures de données
     q = std::queue<const MazeSquare*>();
     visited.clear();
@@ -80,12 +85,7 @@ void resetLists(std::queue<const MazeSquare*>& q, std::unordered_set<const MazeS
 
 void reset() {
     gladiator->log("Appel de la fonction de reset");
-    // Appeler resetLists avec les structures de données
-    std::queue<const MazeSquare*> q;
-    std::unordered_set<const MazeSquare*> visited;
-    std::unordered_map<const MazeSquare*, const MazeSquare*> parent;
-    std::vector<const MazeSquare*> path;
-    resetLists(q, visited, parent, path);
+    resetLists();
 }
 
 void setup() {
@@ -205,6 +205,7 @@ void loop() {
                 moveTo(step);
             }
             gladiator->log("Cible atteinte!");
+            resetLists();
         } else {
             gladiator->log("Aucun chemin trouvé vers la cible.");
         }
