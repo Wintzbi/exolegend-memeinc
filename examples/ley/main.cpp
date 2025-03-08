@@ -117,7 +117,22 @@ void BombListing() {
         }
     }
     gladiator->log("Bomb listing updated.");
+}
 
+bool canGo(MazeSquare* neighbor){
+    if(neighbor != nullptr && neighbor->danger <= 3){
+        return 1;
+    }
+    return 0;
+}
+
+void boom(const MazeSquare* nearestSquare, unsigned char teamId){
+    if (nearestSquare->possession != teamId){
+        if (gladiator->weapon->canDropBombs(1)) {
+            gladiator->weapon->dropBombs(1);
+            gladiator->log("Drop bomb");
+        }
+    }
 }
 
 void setup()
@@ -142,17 +157,10 @@ void loop()
         RobotData myData = gladiator->robot->getData();
         Position targetBomb = { -1, -1 };
         double minDistance = 9999;
-
         unsigned char teamId = myData.teamId;
-
         const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
 
-        if (nearestSquare->possession != teamId){
-            if (gladiator->weapon->canDropBombs(1)) {
-                gladiator->weapon->dropBombs(1);
-                gladiator->log("Drop bomb");
-            }
-        }
+        boom(nearestSquare,teamId);
 
         MazeSquare* neighbors[4] = {nearestSquare->northSquare, nearestSquare->westSquare,
                                     nearestSquare->eastSquare, nearestSquare->southSquare};
@@ -178,7 +186,7 @@ void loop()
          
         // Calcul des positions centrales des voisins
         for (int i = 0; i < 4; ++i) {
-            if (neighbors[i] != nullptr && neighbors[i]->danger <= 3) {
+            if (canGo(neighbors[i])) {
                 centerCoords[i].x = (neighbors[i]->i + 0.5) * squareSize;
                 centerCoords[i].y = (neighbors[i]->j + 0.5) * squareSize;
             }
@@ -188,7 +196,7 @@ void loop()
         float minDistance_calc = std::numeric_limits<float>::max();
          
         for (int i = 0; i < 4; ++i) {
-            if (neighbors[i] != nullptr && neighbors[i]->danger <= 3) {
+            if (canGo(neighbors[i])) {
                 float dx = centerCoords[i].x - targetBomb.x;
                 float dy = centerCoords[i].y - targetBomb.y;
                 float distance_calc = sqrt(dx * dx + dy * dy);
@@ -214,7 +222,7 @@ void loop()
             
         }
 
-         float squareSize = gladiator->maze->getSquareSize();
+        float squareSize = gladiator->maze->getSquareSize();
         int i_bomb= (LastBombToGet.x/squareSize)-0.5;
         int j_bomb= (LastBombToGet.y/squareSize)-0.5;
         const MazeSquare *indexedSquare = gladiator->maze->getSquare(i_bomb, j_bomb);
