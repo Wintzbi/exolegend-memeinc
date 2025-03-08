@@ -1,5 +1,4 @@
 #include "gladiator.h"
-#include "vector2.hpp"
 #include <chrono>
 
 std::chrono::time_point<std::chrono::system_clock> start, end;
@@ -202,6 +201,21 @@ Position FindNearestBomb(){
 
     return targetBomb;
 }
+
+bool avoidDanger(MazeSquare* neighbor){
+    if(neighbor->danger <= 3){
+        return 1;
+    }
+    return 0;
+}
+
+bool canGo(MazeSquare* neighbor){
+    if(neighbor != nullptr && avoidDanger(neighbor)){
+        return 1;
+    }
+    return 0;
+}
+
 void setup()
 {
     // instanciation de l'objet gladiator
@@ -229,6 +243,16 @@ void dropBomb(){
             //gladiator->log("Drop bomb");
         }
 }
+
+void boom(const MazeSquare* nearestSquare, unsigned char teamId){
+    if (nearestSquare->possession != teamId){
+        if (gladiator->weapon->canDropBombs(1)) {
+            dropBomb();
+            gladiator->log("Drop bomb");
+        }
+    }
+}
+
 void CheckBombStatuts(){
         float squareSize = gladiator->maze->getSquareSize();
         
@@ -255,10 +279,11 @@ void loop()
         std::chrono::duration<double> elapsed_seconds = end - start;
         time_elapsed =elapsed_seconds.count();
         //gladiator->log("Temps écoulé %f",time_elapsed);
+        RobotData myData = gladiator->robot->getData();
+        unsigned char teamId = myData.teamId;
+        const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
 
-
-
-        dropBomb();
+        boom(nearestSquare,teamId);
 
         if (UpdateNearestBomb){
                 targetBomb=FindNearestBomb();
@@ -273,9 +298,7 @@ void loop()
         CheckBombStatuts(); // vérifie si on peut toujours aller à la bombe target
 
         Position myPosition = gladiator->robot->getData().position;
-        dropBomb();
         go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
-        dropBomb();
         //gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
         delay(75);
     }
