@@ -251,6 +251,7 @@ void dropBomb(){
 
 void boom(const MazeSquare* nearestSquare, unsigned char teamId){
     if (nearestSquare->possession != teamId && avoidDanger(nearestSquare)){
+        gladiator->log("TeamId: %u || Possession: %u", teamId, nearestSquare->possession);
         dropBomb();
     }
 }
@@ -271,7 +272,6 @@ void CheckBombStatuts(){
                 UpdateNearestBomb=true;
             }
 }
-
 
 void loop()
 {   
