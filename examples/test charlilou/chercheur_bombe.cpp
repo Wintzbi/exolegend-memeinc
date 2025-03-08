@@ -16,18 +16,15 @@ Position BombPos[MAX_BOMB];
 
 // Constantes de contrôle
 
+
 float kw = 0.4f;
 float kv = 2.f;
 float wlimit = 0.5f;
-float vlimit = 1.5;
+float vlimit = 1.25;
 float erreurPos = 0.05;
 float angleThreshold=0.1;
-typedef struct PathList {
-    int x, y;
-    int value;
-} PathList;
 
-PathList* pathList;
+
 template <typename T1, typename T2>
 auto my_max(T1 a, T2 b) -> decltype(a + b)
 {
