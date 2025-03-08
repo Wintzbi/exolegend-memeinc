@@ -64,14 +64,15 @@ void convert(unsigned int i, unsigned int j) {
 }
 #define MAX_BOMB 20
 Position BombPos[MAX_BOMB];
+int Value[MAX_BOMB];
+int value = 0;
 
 void BombListing() {
-    
     int index = 0;
-    // Réinitialisation de la liste
     for (int i = 0; i < MAX_BOMB; i++) {
         BombPos[i].x = -1;
         BombPos[i].y = -1;
+        Value[MAX_BOMB] = 0;
     }
     for(int i=0;i<=11;i++){
         for(int j=0;j<=11;j++){
@@ -82,14 +83,25 @@ void BombListing() {
                 if ( index < MAX_BOMB) {
                     BombPos[index] = posCoin;  // Ajout à la liste
                     index++;  // Incrémentation de l'indice
+                    // MazeSquare* neighbors[4] = {indexedSquare->northSquare, indexedSquare->westSquare,
+                    //     indexedSquare->eastSquare, indexedSquare->southSquare};
+                    // for (int k = 0; k < 4; ++k) {
+                    //     if (neighbors[k] != nullptr) {
+                    //         value = value + 1;
+                    //         }
+                    // Value[index] = value;
+                    // value = 0;
+                    
                 }
                     gladiator->log("position bombe : ( %f; %f )", posCoin.x, posCoin.y);
+                
             }
         }
     }
     gladiator->log("Bomb listing updated.");
 
 }
+
 
 
 
@@ -108,23 +120,25 @@ void reset()
     gladiator->log("Call of reset function"); // GFA 4.5.1
 }
 
-Position lastGoal{-1, -1,0};
 
 void loop()
 {
     if (gladiator->game->isStarted()) {
-
-        if (gladiator->weapon->canDropBombs(1)) {
-            gladiator->weapon->dropBombs(1);
-            gladiator->log("Drop bomb");
-        }
  
         RobotData myData = gladiator->robot->getData();
         Position targetBomb = { 1.5, 1.5 };
         double minDistance = 9999;
+        unsigned char teamId = myData.teamId;
         BombListing();
 
         const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
+
+        if (nearestSquare->possession != teamId){
+            if (gladiator->weapon->canDropBombs(1)) {
+                gladiator->weapon->dropBombs(1);
+                gladiator->log("Drop bomb");
+            }
+        }
 
         MazeSquare* neighbors[4] = {nearestSquare->northSquare, nearestSquare->westSquare,
                                     nearestSquare->eastSquare, nearestSquare->southSquare};
