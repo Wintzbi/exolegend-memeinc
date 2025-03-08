@@ -70,9 +70,22 @@ void go_to(Position cons, Position pos)
     gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
     gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
+void resetLists(std::queue<const MazeSquare*>& q, std::unordered_set<const MazeSquare*>& visited, std::unordered_map<const MazeSquare*, const MazeSquare*>& parent, std::vector<const MazeSquare*>& path) {
+    // Réinitialiser les structures de données
+    q = std::queue<const MazeSquare*>();
+    visited.clear();
+    parent.clear();
+    path.clear();
+}
 
 void reset() {
     gladiator->log("Appel de la fonction de reset");
+    // Appeler resetLists avec les structures de données
+    std::queue<const MazeSquare*> q;
+    std::unordered_set<const MazeSquare*> visited;
+    std::unordered_map<const MazeSquare*, const MazeSquare*> parent;
+    std::vector<const MazeSquare*> path;
+    resetLists(q, visited, parent, path);
 }
 
 void setup() {
