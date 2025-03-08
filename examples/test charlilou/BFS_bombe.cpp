@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <cmath>
 #include <algorithm>
-#include "vector2.hpp"
 #include <chrono>
 
 std::chrono::time_point<std::chrono::system_clock> start, end;
