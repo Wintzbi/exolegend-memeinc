@@ -1,10 +1,19 @@
 #include "gladiator.h"
 #include "vector2.hpp"
+#include <chrono>
+
+std::chrono::time_point<std::chrono::system_clock> start, end;
+float time_elapsed;
+
 Gladiator *gladiator;
 void reset();
 void dropBomb();
 bool UpdateNearestBomb=true;
 Position LastBombToGet;
+Position targetBomb = { -1, -1 };
+#define MAX_BOMB 20
+Position BombPos[MAX_BOMB];
+
 // Constantes de contrôle
 
 float kw = 0.5f;
@@ -99,8 +108,7 @@ void convert(unsigned int i, unsigned int j) {
     Position goal{centerCoor.x, centerCoor.y, 0};
     go_to(goal, myPosition);
 }
-#define MAX_BOMB 20
-Position BombPos[MAX_BOMB];
+
 
 void BombListing() {
     
@@ -115,22 +123,43 @@ void BombListing() {
             const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
             int danger =indexedSquare->danger;
-            gladiator->log("Case : ( %f; %f ) , danger = %u", coin.p.x, coin.p.y,danger);
+            //gladiator->log("Case : ( %f; %f ) , danger = %u", coin.p.x, coin.p.y,danger);
             if (coin.value > 0 && danger <1){
                     Position posCoin = coin.p;
                 if ( index < MAX_BOMB) {
                     BombPos[index] = posCoin;  // Ajout à la liste
                     index++;  // Incrémentation de l'indice
                 }
-                    gladiator->log("position bombe : ( %f; %f )", posCoin.x, posCoin.y);
+                    //gladiator->log("position bombe : ( %f; %f )", posCoin.x, posCoin.y);
             }
         }
     }
-    gladiator->log("Bomb listing updated.");
+    //gladiator->log("Bomb listing updated.");
 
 }
 
+Position FindNearestBomb(){
+    RobotData myData = gladiator->robot->getData();
+    double minDistance = 9999;
 
+    BombListing();
+    for (int i = 0; i < MAX_BOMB; i++) {
+        if (BombPos[i].x != -1 && BombPos[i].y != -1) {
+            double dx = BombPos[i].x - myData.position.x;
+            double dy = BombPos[i].y - myData.position.y;
+            double distance = sqrt(dx * dx + dy * dy);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                targetBomb = BombPos[i];
+                
+            }
+        }
+    }
+    gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, minDistance);
+
+    return targetBomb;
+}
 void setup()
 {
     // instanciation de l'objet gladiator
@@ -141,53 +170,23 @@ void setup()
 
 void reset()
 {
+
     // fonction de reset:
     // initialisation de toutes vos variables avant le début d'un match
     gladiator->log("Call of reset function"); // GFA 4.5.1
+    start = std::chrono::system_clock::now();
+
 }
 void dropBomb(){
         int bombcount = gladiator->weapon->getBombCount();
-        gladiator->log("Nombre bombe : %d",bombcount);
+        //gladiator->log("Nombre bombe : %d",bombcount);
         if (gladiator->weapon->canDropBombs(1)) {
             // Dropper une bombe
-            gladiator->weapon->dropBombs(1);
+            gladiator->weapon->dropBombs(bombcount);
             gladiator->log("Drop bomb");
         }
 }
-void loop()
-{   
-    if (gladiator->game->isStarted()) {
-        dropBomb();
-        RobotData myData = gladiator->robot->getData();
-        Position targetBomb = { -1, -1 };
-        double minDistance = 9999;
-
-        if (UpdateNearestBomb){
-                BombListing();
-                for (int i = 0; i < MAX_BOMB; i++) {
-                    if (BombPos[i].x != -1 && BombPos[i].y != -1) {
-                        double dx = BombPos[i].x - myData.position.x;
-                        double dy = BombPos[i].y - myData.position.y;
-                        double distance = sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            targetBomb = BombPos[i];
-                            
-                        }
-                    }
-                }
-        }
-        
-        if (targetBomb.x != -1 && targetBomb.y != -1) {
-            LastBombToGet=targetBomb;
-            UpdateNearestBomb=false;
-            gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, minDistance);
-            
-        
-
-            
-        }
+void CheckBombStatuts(){
 
          float squareSize = gladiator->maze->getSquareSize();
         int i_bomb= (LastBombToGet.x/squareSize)-0.5;
@@ -195,17 +194,45 @@ void loop()
         const MazeSquare *indexedSquare = gladiator->maze->getSquare(i_bomb, j_bomb);
         Coin coin = indexedSquare->coin;
         int danger =indexedSquare->danger;
-        gladiator->log("Case visée: ( %d; %d ) , danger = %u", i_bomb, j_bomb,danger);
+        //gladiator->log("Case visée: ( %d; %d ) , danger = %u", i_bomb, j_bomb,danger);
 
         if (coin.value < 1 || danger >2){
                 UpdateNearestBomb=true;
             }
+}
+
+
+void loop()
+{   
+    if (gladiator->game->isStarted()) {
+
+        end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end - start;
+        time_elapsed =elapsed_seconds.count();
+        gladiator->log("Temps écoulé %f",time_elapsed);
+
+
+
+
+        dropBomb();
+
+        if (UpdateNearestBomb){
+                targetBomb=FindNearestBomb();
+        }
+        
+        
+        if (targetBomb.x != -1 && targetBomb.y != -1) {
+            LastBombToGet=targetBomb;
+            UpdateNearestBomb=false;
+        }
+
+        CheckBombStatuts(); // vérifie si on peut toujours aller à la bombe target
 
         Position myPosition = gladiator->robot->getData().position;
         dropBomb();
         go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
         dropBomb();
-        gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
+        //gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
         delay(75);
     }
 }
