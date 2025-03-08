@@ -2,16 +2,17 @@
 #include "vector2.hpp"
 Gladiator *gladiator;
 void reset();
+void dropBomb();
 bool UpdateNearestBomb=true;
 Position LastBombToGet;
 // Constantes de contrôle
 
-float kw = 4.f;
-float kv = 4.f;
-float wlimit = 3.f;
+float kw = 0.5f;
+float kv = 2.5f;
+float wlimit = 0.25f;
 float vlimit = 2;
 float erreurPos = 0.05;
-
+float angleThreshold=0.08;
 typedef struct PathList {
     int x, y;
     int value;
@@ -38,31 +39,50 @@ inline float moduloPi(float a) // return angle in [-pi; pi]
 
 void go_to(Position cons, Position pos)
 {
+    dropBomb();
     double consvl, consvr;
     double dx = cons.x - pos.x;
     double dy = cons.y - pos.y;
     double d = sqrt(dx * dx + dy * dy);
 
+    // Si la position cible est suffisamment éloignée
     if (d > erreurPos)
     {
         double rho = atan2(dy, dx);
-        double consw = kw * reductionAngle(rho - pos.a);
+        double angleDifference = reductionAngle(rho - pos.a);
+        
+        // Si l'angle entre la direction actuelle et la direction cible est trop grand, tourner sur place
+        if (fabs(angleDifference) > angleThreshold) // angleThreshold est un seuil que vous définissez
+        {
+            // Contrôle de la vitesse des roues pour faire tourner le robot sur place
+            double consw = kw * angleDifference;
+            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
 
-        double consv = kv * d * cos(reductionAngle(rho - pos.a));
-        consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
-        consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
+            consvl = -consw;  // Roue gauche tourne dans une direction
+            consvr = consw;   // Roue droite tourne dans la direction opposée
+        }
+        else
+        {
+            // Si l'angle est suffisamment petit, le robot peut avancer
+            double consw = kw * angleDifference;
+            double consv = kv * d * cos(angleDifference);
+            
+            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+            consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
 
-        consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
-        consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+            consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+            consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+        }
     }
     else
     {
+        // Si la position est proche de la cible, arrêter le robot
         consvr = 0;
         consvl = 0;
-        UpdateNearestBomb=true;
-
+        UpdateNearestBomb = true;
     }
 
+    // Appliquer les vitesses aux roues
     gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
     gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
@@ -125,15 +145,19 @@ void reset()
     // initialisation de toutes vos variables avant le début d'un match
     gladiator->log("Call of reset function"); // GFA 4.5.1
 }
-
-void loop()
-{   
-    if (gladiator->game->isStarted()) {
+void dropBomb(){
+        int bombcount = gladiator->weapon->getBombCount();
+        gladiator->log("Nombre bombe : %d",bombcount);
         if (gladiator->weapon->canDropBombs(1)) {
             // Dropper une bombe
             gladiator->weapon->dropBombs(1);
             gladiator->log("Drop bomb");
         }
+}
+void loop()
+{   
+    if (gladiator->game->isStarted()) {
+        dropBomb();
         RobotData myData = gladiator->robot->getData();
         Position targetBomb = { -1, -1 };
         double minDistance = 9999;
@@ -160,9 +184,7 @@ void loop()
             UpdateNearestBomb=false;
             gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, minDistance);
             
-            double dx = targetBomb.x - myData.position.x;
-            double dy = targetBomb.y - myData.position.y;
-            double targetAngle = atan2(dy, dx);
+        
 
             
         }
@@ -180,8 +202,10 @@ void loop()
             }
 
         Position myPosition = gladiator->robot->getData().position;
+        dropBomb();
         go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
+        dropBomb();
         gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
-        delay(100);
+        delay(75);
     }
 }
