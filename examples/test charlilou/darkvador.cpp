@@ -91,7 +91,7 @@ void shouldGo()
 }
 
 bool CheckFuturCase(int i, int j){
-    Num_tour = floor((time_elapsed + 6) / 20.f); // Arrondi à l'inférieur
+    Num_tour = floor((time_elapsed+6 ) / 20.f); // Arrondi à l'inférieur
 
     // Récupérer la taille réelle du labyrinthe en cases
     float squareSize = gladiator->maze->getSquareSize();
@@ -99,11 +99,10 @@ bool CheckFuturCase(int i, int j){
     int MazeSize_int = floor(MazeSize / squareSize)-1;
 
     // Log pour débogage
-    gladiator->log("Numéro tour %d,m MazeSize %d", Num_tour,MazeSize_int);
-    gladiator->log("Limites : (%d, %d)", MazeSize_int - Num_tour, Num_tour);
+    gladiator->log("TIme : %f | Numéro tour %d | MazeSize %d | Limites : (%d, %d)",time_elapsed, Num_tour,MazeSize_int,11 - Num_tour, Num_tour);
 
     // Vérification des limites du labyrinthe
-    if (i == Num_tour || i == MazeSize_int - Num_tour  || j == Num_tour || j == MazeSize_int - Num_tour ) {
+    if (i <= Num_tour-1 || i >= 12 - Num_tour  || j <= Num_tour-1 || j >= 12 - Num_tour ) {
         //gladiator->log("Bombe or limite");
         return false;  // Ne pas explorer cette case
     }
