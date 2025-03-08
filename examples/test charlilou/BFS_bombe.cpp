@@ -26,10 +26,10 @@ std::vector<const MazeSquare*> bfsToTarget(const MazeSquare* start, const MazeSq
 
 float kw = 0.15f;
 float kv = 1.0f;
-float wlimit = 0.35f;
-float vlimit = 0.80f;
-float erreurPos = 0.05f;
-float angleThreshold = 0.2f;
+float wlimit = 0.25f;
+float vlimit = 1.5f;
+float erreurPos = 0.f;
+float angleThreshold = 0.5f;
 
 // Déclaration des variables globales
 std::queue<const MazeSquare*> q;
@@ -413,6 +413,9 @@ void loop() {
             gladiator->log("Cible atteinte!");
         } else {
             gladiator->log("Aucun chemin trouvé vers la cible.");
+            Position Goal{1.5,1.5,0};
+            Position myPosition = gladiator->robot->getData().position;
+            go_to(Goal,myPosition);
         }
 
         // Réinitialiser les structures de données après chaque tentative
