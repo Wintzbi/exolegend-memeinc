@@ -3,14 +3,18 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <cmath>
+#include <algorithm>
+
 
 Gladiator *gladiator;
 
-float kw = 1.2;
-float kv = 1.0f;
-float wlimit = 3.0f;
-float vlimit = 0.6f;
-float erreurPos = 0.07f;
+float kw = 0.15f;
+float kv = 2.f;
+float wlimit = 0.2f;
+float vlimit = 1.;
+float erreurPos = 0.05;
+float angleThreshold=0.2;
+
 
 double reductionAngle(double x) {
     x = fmod(x + M_PI, 2 * M_PI);
@@ -19,29 +23,52 @@ double reductionAngle(double x) {
     return x - M_PI;
 }
 
-void go_to(Position cons, Position pos) {
+void go_to(Position cons, Position pos)
+{
     double consvl, consvr;
     double dx = cons.x - pos.x;
     double dy = cons.y - pos.y;
     double d = sqrt(dx * dx + dy * dy);
 
-    if (d > erreurPos) {
+    // Si la position cible est suffisamment éloignée
+    if (d > erreurPos)
+    {
         double rho = atan2(dy, dx);
-        double consw = kw * reductionAngle(rho - pos.a);
+        double angleDifference = reductionAngle(rho - pos.a);
+        
+        // Si l'angle entre la direction actuelle et la direction cible est trop grand, tourner sur place
+        if (fabs(angleDifference) > angleThreshold) // angleThreshold est un seuil que vous définissez
+        {
+            // Contrôle de la vitesse des roues pour faire tourner le robot sur place
+            double consw = kw * angleDifference;
+            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
 
-        double consv = kv * d * cos(reductionAngle(rho - pos.a));
-        consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
-        consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
+            consvl = -consw;  // Roue gauche tourne dans une direction
+            consvr = consw;   // Roue droite tourne dans la direction opposée
+        }
+        else
+        {
+            // Si l'angle est suffisamment petit, le robot peut avancer
+            double consw = kw * angleDifference;
+            double consv = kv * d * cos(angleDifference);
+            
+            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+            consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
 
-        consvl = consv - gladiator->robot->getRobotRadius() * consw;
-        consvr = consv + gladiator->robot->getRobotRadius() * consw;
-    } else {
+            consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+            consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+        }
+    }
+    else
+    {
+        // Si la position est proche de la cible, arrêter le robot
         consvr = 0;
         consvl = 0;
     }
 
-    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false);
-    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);
+    // Appliquer les vitesses aux roues
+    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
+    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
 
 void reset() {
@@ -85,15 +112,16 @@ void moveTo(const MazeSquare* target) {
     gladiator->log("Moving to square at (%d, %d)", target->i, target->j);
 }
 
-bool bfsToTarget(const MazeSquare* start, const MazeSquare* target) {
+std::vector<const MazeSquare*> bfsToTarget(const MazeSquare* start, const MazeSquare* target) {
     if (start == nullptr || target == nullptr) {
         gladiator->log("Start or target square is null");
-        return false;
+        return {};
     }
 
     std::queue<const MazeSquare*> q;
     std::unordered_set<const MazeSquare*> visited;
     std::unordered_map<const MazeSquare*, const MazeSquare*> parent;
+    std::vector<const MazeSquare*> path;
 
     q.push(start);
     visited.insert(start);
@@ -103,15 +131,17 @@ bool bfsToTarget(const MazeSquare* start, const MazeSquare* target) {
         const MazeSquare* current = q.front();
         q.pop();
 
-        //gladiator->log("Visiting square at (%d, %d)", current->i, current->j);
+        gladiator->log("Visiting square at (%d, %d)", current->i, current->j);
 
         if (current == target) {
+            // Retrace the path
             const MazeSquare* step = current;
             while (step != nullptr) {
-                moveTo(step);
+                path.push_back(step);
                 step = parent[step];
             }
-            return true;
+            std::reverse(path.begin(), path.end());
+            return path;
         }
 
         if (isValid(current->northSquare, visited)) {
@@ -136,7 +166,7 @@ bool bfsToTarget(const MazeSquare* start, const MazeSquare* target) {
         }
     }
 
-    return false;
+    return {};
 }
 
 void loop() {
@@ -156,12 +186,16 @@ void loop() {
             return;
         }
 
-        if (bfsToTarget(nearestSquare, targetSquare)) {
+        std::vector<const MazeSquare*> path = bfsToTarget(nearestSquare, targetSquare);
+        if (!path.empty()) {
+            for (const MazeSquare* step : path) {
+                moveTo(step);
+            }
             gladiator->log("Cible atteinte!");
         } else {
             gladiator->log("Aucun chemin trouvé vers la cible.");
         }
 
-        delay(100);
+        delay(150);
     }
 }
