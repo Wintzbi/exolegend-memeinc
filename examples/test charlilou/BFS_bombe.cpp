@@ -21,70 +21,54 @@ Position BombPos[MAX_BOMB];
 bool CheckFutureCase(int i, int j,int futur_time) ;
 std::vector<const MazeSquare*> bfsToTarget(const MazeSquare* start, const MazeSquare* target);
 
-
-
-float kw = 0.15f;
-float kv = 1.0f;
-float wlimit = 0.25f;
-float vlimit = 1.5f;
-float erreurPos = 0.10f;
-float angleThreshold = 0.5f;
-
 // Déclaration des variables globales
 std::queue<const MazeSquare*> q;
 std::unordered_set<const MazeSquare*> visited;
 std::unordered_map<const MazeSquare*, const MazeSquare*> parent;
 std::vector<const MazeSquare*> path;
 
-double reductionAngle(double x) {
-    x = fmod(x + M_PI, 2 * M_PI);
-    if (x < 0)
-        x += 2 * M_PI;
-    return x - M_PI;
-}
 
-void go_to(Position cons, Position pos) {
+float kw = 1.5;
+float kv = 1.f;
+float wlimit = 3.f;
+float vlimit = 0.6;
+float erreurPos = 0.07;
+
+double reductionAngle(double x)
+{
+    x = fmod(x + PI, 2 * PI);
+    if (x < 0)
+        x += 2 * PI;
+    return x - PI;
+}
+void go_to(Position cons, Position pos)
+{
     double consvl, consvr;
-    double dx = cons.x+deltaX - pos.x;
-    double dy = cons.y+deltaY - pos.y;
+    double dx = cons.x - pos.x;
+    double dy = cons.y - pos.y;
     double d = sqrt(dx * dx + dy * dy);
 
-    // Si la position cible est suffisamment éloignée
-    if (d > erreurPos) {
+    if (d > erreurPos)
+    {
         double rho = atan2(dy, dx);
-        double angleDifference = reductionAngle(rho - pos.a);
+        double consw = kw * reductionAngle(rho - pos.a);
 
-        // Si l'angle entre la direction actuelle et la direction cible est trop grand, tourner sur place
-        if (fabs(angleDifference) > angleThreshold) {
-            double consw = kw * angleDifference;
-            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
-
-            consvl = -consw;  // Roue gauche tourne dans une direction
-            consvr = consw;   // Roue droite tourne dans la direction opposée
-        } else {
-            // Si l'angle est suffisamment petit, le robot peut avancer
-            /*
-            double consw = kw * angleDifference;
-            double consv = kv * d * cos(angleDifference);
-
-            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
-            consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
-
-            consvl = consv - gladiator->robot->getRobotRadius() * consw;
-            consvr = consv + gladiator->robot->getRobotRadius() * consw;*/
-            consvr = 0.4;
-            consvl = 0.4;
-            dropBomb();
-        }
-    } else {
-        // Si la position est proche de la cible, arrêter le robot
+        double consv = kv * d * cos(reductionAngle(rho - pos.a));
+        consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+        consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
+        //consv=std::max(consv,0.15);
+        consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+        consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+        dropBomb();
+    }
+    else
+    {
         consvr = 0;
         consvl = 0;
     }
 
-    // Appliquer les vitesses aux roues
-    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false);
-    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);
+    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
+    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
 
 void resetLists() {
@@ -418,7 +402,7 @@ void loop() {
             Position Goal{1.5,1.5,0};
             Position myPosition = gladiator->robot->getData().position;
 
-            go_to(Goal,myPosition);
+            go_to(LastBombToGet,myPosition);
         }
 
         // Réinitialiser les structures de données après chaque tentative
