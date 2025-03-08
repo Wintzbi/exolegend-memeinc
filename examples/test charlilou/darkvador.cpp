@@ -10,6 +10,8 @@ void loop();
 void retreat();
 void arme_fou(int duree);
 void shouldGo();
+void dropBomb();
+void boom();
 
 float kw = 0.4f;
 float kv = 2.f;
@@ -29,6 +31,29 @@ void setup()
     gladiator->game->onReset(&reset);
 }
 
+void dropBomb(){
+    int bombcount = gladiator->weapon->getBombCount();
+    if (gladiator->weapon->canDropBombs(1))
+        {
+            gladiator->weapon->dropBombs(1);
+            gladiator->log("Drop bomb");
+        }
+    
+}
+
+bool avoidDanger(const MazeSquare* neighbor){
+    if(neighbor->danger < 1 ){
+        return 1;
+    }
+    return 0;
+}
+
+void boom(const MazeSquare* nearestSquare, unsigned char teamId){
+    if (nearestSquare->possession != teamId && avoidDanger(nearestSquare)){
+        dropBomb();
+    }
+}
+
 bool isRobotStuck()
 {
     static Position lastPosition = gladiator->robot->getData().position;
@@ -39,13 +64,13 @@ bool isRobotStuck()
     double dy = currentPosition.y - lastPosition.y;
     double distance = sqrt(dx * dx + dy * dy);
 
-    if (distance > 0.01)
+    if (distance > 0.1)
     {
         lastPosition = currentPosition;
         lastMoveTime = millis();
     }
 
-    return (millis() - lastMoveTime) > 2500;
+    return (millis() - lastMoveTime) > 2000;
 }
 
 void retreat()
@@ -53,9 +78,12 @@ void retreat()
     if (isRobotStuck())
     {
         gladiator->log("Robot bloqué, activation de la retraite !");
-        gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.8);
-        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, -0.8);
-        delay(500);
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.4);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, -0.4);
+        delay(200);
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.4);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
+        delay(200);
         gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0);
         gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
     }
@@ -93,7 +121,7 @@ void shouldGo()
         gladiator->log("Danger détecté", dangerLevel);
         gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0);
         gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
-        delay(2000);
+        delay(1500);
     }
 }
 
@@ -143,16 +171,19 @@ void loop()
     {
         shouldGo();
 
-        if (gladiator->weapon->canDropBombs(1))
-        {
-            gladiator->weapon->dropBombs(1);
-            gladiator->log("Drop bomb");
-        }
+        
+   
 
         RobotData myData = gladiator->robot->getData();
         RobotList robotList = gladiator->game->getPlayingRobotsId();
         RobotData enemyData{};
         bool enemyFound = false;
+        unsigned char teamId = myData.teamId;
+        const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();  
+        boom(nearestSquare,teamId);
+
+
+        static uint8_t lastTrackedEnemy = 0;  // Stocke l'ID du dernier ennemi traqué
 
         for (uint8_t id : robotList.ids)
         {
@@ -161,11 +192,25 @@ void loop()
                 enemyData = gladiator->game->getOtherRobotData(id);
                 if (enemyData.lifes > 0)
                 {
+                    if (lastTrackedEnemy != 0 && lastTrackedEnemy != id)
+                    {
+                        gladiator->log("L'ennemi précédent est mort, retraite !");
+                        retreat();  // Fait reculer le robot avant de changer de cible
+                    }
+                    lastTrackedEnemy = id;
                     enemyFound = true;
                     break;
                 }
             }
         }
+        
+        // Si aucun ennemi trouvé, on réinitialise le dernier ennemi suivi
+        if (!enemyFound)
+        {
+            lastTrackedEnemy = 0;
+
+        }
+        
 
         if (enemyFound)
         {
