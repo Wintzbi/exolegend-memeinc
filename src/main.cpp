@@ -1,19 +1,27 @@
 #include "gladiator.h"
 Gladiator *gladiator;
 void reset();
+bool UpdateNearestBomb=true;
+Position LastBombToGet;
+// Constantes de contrôle
 
-float kw = 1.2;
-float kv = 1.f;
-float wlimit = 3.f;
-float vlimit = 0.7;
+float kw = 4.f;
+float kv = 2.f;
+float wlimit = 4.f;
+float vlimit = 1.0;
 float erreurPos = 0.07;
+
 typedef struct PathList {
     int x, y;
     int value;
 } PathList;
 
 PathList* pathList;
-
+template <typename T1, typename T2>
+auto my_max(T1 a, T2 b) -> decltype(a + b)
+{
+    return (a > b) ? a : b;
+}
 double reductionAngle(double x)
 {
     x = fmod(x + PI, 2 * PI);
@@ -21,6 +29,12 @@ double reductionAngle(double x)
         x += 2 * PI;
     return x - PI;
 }
+inline float moduloPi(float a) // return angle in [-pi; pi]
+{
+    return (a < 0.0) ? (std::fmod(a - M_PI, 2 * M_PI) + M_PI) : (std::fmod(a + M_PI, 2 * M_PI) - M_PI);
+}
+
+
 void go_to(Position cons, Position pos)
 {
     double consvl, consvr;
@@ -44,6 +58,8 @@ void go_to(Position cons, Position pos)
     {
         consvr = 0;
         consvl = 0;
+        UpdateNearestBomb=true;
+
     }
 
     gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
@@ -78,7 +94,9 @@ void BombListing() {
         for(int j=0;j<=11;j++){
             const MazeSquare *indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
-            if (coin.value > 0){
+            int danger =indexedSquare->danger;
+            gladiator->log("Case : ( %f; %f ) , danger = %u", coin.p.x, coin.p.y,danger);
+            if (coin.value > 0 && danger <1){
                     Position posCoin = coin.p;
                 if ( index < MAX_BOMB) {
                     BombPos[index] = posCoin;  // Ajout à la liste
@@ -99,11 +117,31 @@ void BombListing() {
         }
     }
     gladiator->log("Bomb listing updated.");
-
 }
 
 
+bool avoidDanger(MazeSquare* neighbor){
+    if(neighbor->danger <= 3){
+        return 1;
+    }
+    return 0;
+}
 
+bool canGo(MazeSquare* neighbor){
+    if(neighbor != nullptr && avoidDanger(neighbor)){
+        return 1;
+    }
+    return 0;
+}
+
+void boom(const MazeSquare* nearestSquare, unsigned char teamId){
+    if (nearestSquare->possession != teamId){
+        if (gladiator->weapon->canDropBombs(1)) {
+            gladiator->weapon->dropBombs(1);
+            gladiator->log("Drop bomb");
+        }
+    }
+}
 
 void setup()
 {
@@ -122,45 +160,40 @@ void reset()
 
 
 void loop()
-{
+{   
     if (gladiator->game->isStarted()) {
- 
         RobotData myData = gladiator->robot->getData();
-        Position targetBomb = { 1.5, 1.5 };
+        Position targetBomb = { -1, -1 };
         double minDistance = 9999;
         unsigned char teamId = myData.teamId;
-        BombListing();
-
         const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
 
-        if (nearestSquare->possession != teamId){
-            if (gladiator->weapon->canDropBombs(1)) {
-                gladiator->weapon->dropBombs(1);
-                gladiator->log("Drop bomb");
-            }
-        }
+        boom(nearestSquare,teamId);
 
         MazeSquare* neighbors[4] = {nearestSquare->northSquare, nearestSquare->westSquare,
                                     nearestSquare->eastSquare, nearestSquare->southSquare};
         Position centerCoords[4];
         float squareSize = gladiator->maze->getSquareSize();
 
-        for (int i = 0; i < MAX_BOMB; i++) {
-            if (BombPos[i].x != -1 && BombPos[i].y != -1) {
-                double dx = BombPos[i].x - myData.position.x;
-                double dy = BombPos[i].y - myData.position.y;
-                double distance = sqrt(dx * dx + dy * dy);
-                
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    targetBomb = BombPos[i];
+        if (UpdateNearestBomb){
+                BombListing();
+                for (int i = 0; i < MAX_BOMB; i++) {
+                    if (BombPos[i].x != -1 && BombPos[i].y != -1) {
+                        double dx = BombPos[i].x - myData.position.x;
+                        double dy = BombPos[i].y - myData.position.y;
+                        double distance = sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            targetBomb = BombPos[i];
+                        }
+                    }
                 }
             }
-        }
          
         // Calcul des positions centrales des voisins
         for (int i = 0; i < 4; ++i) {
-            if (neighbors[i] != nullptr && neighbors[i]->danger <= 3) {
+            if (canGo(neighbors[i])) {
                 centerCoords[i].x = (neighbors[i]->i + 0.5) * squareSize;
                 centerCoords[i].y = (neighbors[i]->j + 0.5) * squareSize;
             }
@@ -170,7 +203,7 @@ void loop()
         float minDistance_calc = std::numeric_limits<float>::max();
          
         for (int i = 0; i < 4; ++i) {
-            if (neighbors[i] != nullptr && neighbors[i]->danger <= 3) {
+            if (canGo(neighbors[i])) {
                 float dx = centerCoords[i].x - targetBomb.x;
                 float dy = centerCoords[i].y - targetBomb.y;
                 float distance_calc = sqrt(dx * dx + dy * dy);
@@ -183,20 +216,31 @@ void loop()
         }
          
         Position position = myData.position;
+
         if (targetBomb.x != -1 && targetBomb.y != -1) {
-            double dx = targetBomb.x - position.x;
-            double dy = targetBomb.y - position.y;
-            double distanceToBomb = sqrt(dx * dx + dy * dy);
-         
-            gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, distanceToBomb);
-         
-            if (minIndex != -1) {
-                Position goal{centerCoords[minIndex].x, centerCoords[minIndex].y, 0};
-                go_to(goal, position);
-            }
-         
-            gladiator->log("Tracking bomb at (%f, %f)", targetBomb.x, targetBomb.y);
-            delay(100);
+            LastBombToGet=targetBomb;
+            UpdateNearestBomb=false;
+            gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, minDistance);
+            
+            double dx = targetBomb.x - myData.position.x;
+            double dy = targetBomb.y - myData.position.y;
+
+            
         }
+        int i_bomb= (LastBombToGet.x/squareSize)-0.5;
+        int j_bomb= (LastBombToGet.y/squareSize)-0.5;
+        const MazeSquare *indexedSquare = gladiator->maze->getSquare(i_bomb, j_bomb);
+        Coin coin = indexedSquare->coin;
+        int danger =indexedSquare->danger;
+        gladiator->log("Case visée: ( %d; %d ) , danger = %u", i_bomb, j_bomb,danger);
+
+        if (coin.value < 1 || danger >2){
+                UpdateNearestBomb=true;
+        }  
+
+        Position myPosition = gladiator->robot->getData().position;
+        go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
+        gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
+        delay(100);
     }
 }

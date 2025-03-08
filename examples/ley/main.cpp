@@ -119,8 +119,16 @@ void BombListing() {
     gladiator->log("Bomb listing updated.");
 }
 
+
+bool avoidDanger(MazeSquare* neighbor){
+    if(neighbor->danger <= 3){
+        return 1;
+    }
+    return 0;
+}
+
 bool canGo(MazeSquare* neighbor){
-    if(neighbor != nullptr && neighbor->danger <= 3){
+    if(neighbor != nullptr && avoidDanger(neighbor)){
         return 1;
     }
     return 0;
