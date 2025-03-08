@@ -10,23 +10,20 @@ void dropBomb();
 bool UpdateNearestBomb=true;
 Position LastBombToGet;
 Position targetBomb = { -1, -1 };
-#define MAX_BOMB 20
+#define MAX_BOMB 50
 Position BombPos[MAX_BOMB];
 
 // Constantes de contrôle
 
+
 float kw = 0.4f;
 float kv = 2.f;
 float wlimit = 0.5f;
-float vlimit = 1.5;
+float vlimit = 1.25;
 float erreurPos = 0.05;
 float angleThreshold=0.1;
-typedef struct PathList {
-    int x, y;
-    int value;
-} PathList;
 
-PathList* pathList;
+
 template <typename T1, typename T2>
 auto my_max(T1 a, T2 b) -> decltype(a + b)
 {
@@ -117,7 +114,7 @@ bool CheckFuturCase(int i, int j){
     int MazeSize_int = floor(MazeSize / squareSize)-1;
 
     // Log pour débogage
-    gladiator->log("TIme : %f | Numéro tour %d | MazeSize %d | Limites : (%d, %d)",time_elapsed, Num_tour,MazeSize_int,11 - Num_tour, Num_tour);
+    gladiator->log("TIme : %f | Numéro tour %d | MazeSize %d | Limites : (%d, %d)",time_elapsed, Num_tour,MazeSize_int,Num_tour,11 - Num_tour);
 
     // Vérification des limites du labyrinthe
     if (i <= Num_tour-1 || i >= 12 - Num_tour  || j <= Num_tour-1 || j >= 12 - Num_tour ) {
@@ -140,27 +137,32 @@ void BombListing() {
     // Parcours du labyrinthe (ajustez la taille si nécessaire)
     float MazeSize = gladiator->maze->getCurrentMazeSize();
     int MazeSize_int = static_cast<int>(MazeSize / squareSize);
+    gladiator->log( "MazeSize %d | Limites : (%d, %d)",MazeSize_int,Num_tour,11 - Num_tour);
 
-    for (int i = 0; i < MazeSize_int; i++) {
-        for (int j = 0; j < MazeSize_int; j++) {
+    for (int i = 0; i < 12; i++) {
+        for (int j = 0; j < 12; j++) {
             const MazeSquare* indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
             int danger = indexedSquare->danger;
-
+            if(coin.value<1){
+                continue;
+            }
             // Calcul de la position réelle de la bombe
             int i_bomb = static_cast<int>((coin.p.x / squareSize) - 0.5);
             int j_bomb = static_cast<int>((coin.p.y / squareSize) - 0.5);
-            if(Num_tour<4){ 
+            
+                // Vérification si la case est une limite
                 if (!CheckFuturCase(i_bomb, j_bomb) ) {
                 gladiator->log("Bombe hors limites (%d, %d) ", i_bomb, j_bomb);
 
                 continue;  // Ignorer les cases sur les bords
             }
-            }
-            // Vérification si la case est une limite
+            
             
 
             // Vérification si la bombe est valide
+            gladiator->log("Donnée de filtres(%d, %d) ", coin.value , danger);
+
             if (coin.value > 0 && danger < 1) {
                 Position posCoin = coin.p;
                 if (index < MAX_BOMB) {
@@ -176,10 +178,11 @@ void BombListing() {
 Position FindNearestBomb(){
     RobotData myData = gladiator->robot->getData();
     double minDistance = 9999;
-
+    int compteurBombes =0;
     BombListing();
     for (int i = 0; i < MAX_BOMB; i++) {
         if (BombPos[i].x != -1 && BombPos[i].y != -1) {
+            compteurBombes++;
             double dx = BombPos[i].x - myData.position.x;
             double dy = BombPos[i].y - myData.position.y;
             double distance = sqrt(dx * dx + dy * dy);
@@ -197,7 +200,9 @@ Position FindNearestBomb(){
     int i_bomb = static_cast<int>((targetBomb.x / squareSize) - 0.5);
     int j_bomb = static_cast<int>((targetBomb.y / squareSize) - 0.5);
 
-    gladiator->log("Nearest bomb at (%d, %d), distance: %f", i_bomb, j_bomb, minDistance);
+    int myPOs_i = static_cast<int>((myData.position.x / squareSize) - 0.5);
+    int myPOs_j = static_cast<int>((myData.position.y / squareSize) - 0.5);
+    gladiator->log("Bombs detecte : %d | Nearest bomb at (%d, %d)| Mypos : (%d,%d) | distance: %f", compteurBombes,i_bomb, j_bomb, myPOs_i,myPOs_j,minDistance);
 
     return targetBomb;
 }
