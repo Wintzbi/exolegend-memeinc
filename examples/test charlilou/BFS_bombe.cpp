@@ -28,7 +28,7 @@ float kw = 0.15f;
 float kv = 1.0f;
 float wlimit = 0.25f;
 float vlimit = 1.5f;
-float erreurPos = 0.f;
+float erreurPos = 0.10f;
 float angleThreshold = 0.5f;
 
 // Déclaration des variables globales
@@ -415,6 +415,7 @@ void loop() {
             gladiator->log("Aucun chemin trouvé vers la cible.");
             Position Goal{1.5,1.5,0};
             Position myPosition = gladiator->robot->getData().position;
+
             go_to(Goal,myPosition);
         }
 
