@@ -16,12 +16,12 @@ Position BombPos[MAX_BOMB];
 
 // Constantes de contrôle
 
-float kw = 0.5f;
-float kv = 2.5f;
-float wlimit = 0.25f;
-float vlimit = 2;
+float kw = 0.4f;
+float kv = 2.f;
+float wlimit = 0.5f;
+float vlimit = 1.5;
 float erreurPos = 0.05;
-float angleThreshold=0.08;
+float angleThreshold=0.1;
 typedef struct PathList {
     int x, y;
     int value;
@@ -151,13 +151,15 @@ void BombListing() {
             // Calcul de la position réelle de la bombe
             int i_bomb = static_cast<int>((coin.p.x / squareSize) - 0.5);
             int j_bomb = static_cast<int>((coin.p.y / squareSize) - 0.5);
-
-            // Vérification si la case est une limite
-            if (!CheckFuturCase(i_bomb, j_bomb)) {
+            if(Num_tour<4){ 
+                if (!CheckFuturCase(i_bomb, j_bomb) ) {
                 gladiator->log("Bombe hors limites (%d, %d) ", i_bomb, j_bomb);
 
                 continue;  // Ignorer les cases sur les bords
             }
+            }
+            // Vérification si la case est une limite
+            
 
             // Vérification si la bombe est valide
             if (coin.value > 0 && danger < 1) {
