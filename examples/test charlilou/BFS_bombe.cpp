@@ -64,6 +64,7 @@ void go_to(Position cons, Position pos) {
             consvr = consw;   // Roue droite tourne dans la direction opposée
         } else {
             // Si l'angle est suffisamment petit, le robot peut avancer
+            /*
             double consw = kw * angleDifference;
             double consv = kv * d * cos(angleDifference);
 
@@ -71,7 +72,10 @@ void go_to(Position cons, Position pos) {
             consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
 
             consvl = consv - gladiator->robot->getRobotRadius() * consw;
-            consvr = consv + gladiator->robot->getRobotRadius() * consw;
+            consvr = consv + gladiator->robot->getRobotRadius() * consw;*/
+            consvr = 0.4;
+            consvl = 0.4;
+            dropBomb();
         }
     } else {
         // Si la position est proche de la cible, arrêter le robot
@@ -371,7 +375,6 @@ void loop() {
             time_elapsed=0;
         }
 
-        dropBomb();
 
         if (UpdateNearestBomb) {
             targetBomb = FindNearestBomb();
