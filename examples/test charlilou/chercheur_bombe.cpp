@@ -110,7 +110,7 @@ void convert(unsigned int i, unsigned int j) {
 }
 
 bool CheckFuturCase(int i, int j){
-    Num_tour = floor((time_elapsed + 6) / 20.f); // Arrondi à l'inférieur
+    Num_tour = floor((time_elapsed+6 ) / 20.f); // Arrondi à l'inférieur
 
     // Récupérer la taille réelle du labyrinthe en cases
     float squareSize = gladiator->maze->getSquareSize();
@@ -118,11 +118,10 @@ bool CheckFuturCase(int i, int j){
     int MazeSize_int = floor(MazeSize / squareSize)-1;
 
     // Log pour débogage
-    gladiator->log("Numéro tour %d,m MazeSize %d", Num_tour,MazeSize_int);
-    gladiator->log("Limites : (%d, %d)", MazeSize_int - Num_tour, Num_tour);
+    gladiator->log("TIme : %f | Numéro tour %d | MazeSize %d | Limites : (%d, %d)",time_elapsed, Num_tour,MazeSize_int,11 - Num_tour, Num_tour);
 
     // Vérification des limites du labyrinthe
-    if (i == Num_tour || i == MazeSize_int - Num_tour  || j == Num_tour || j == MazeSize_int - Num_tour ) {
+    if (i <= Num_tour-1 || i >= 12 - Num_tour  || j <= Num_tour-1 || j >= 12 - Num_tour ) {
         //gladiator->log("Bombe or limite");
         return false;  // Ne pas explorer cette case
     }
@@ -137,9 +136,9 @@ void BombListing() {
         BombPos[i].x = -1;
         BombPos[i].y = -1;
     }
+    float squareSize = gladiator->maze->getSquareSize();
 
     // Parcours du labyrinthe (ajustez la taille si nécessaire)
-    float squareSize = gladiator->maze->getSquareSize();
     float MazeSize = gladiator->maze->getCurrentMazeSize();
     int MazeSize_int = static_cast<int>(MazeSize / squareSize);
 
@@ -155,6 +154,8 @@ void BombListing() {
 
             // Vérification si la case est une limite
             if (!CheckFuturCase(i_bomb, j_bomb)) {
+                gladiator->log("Bombe hors limites (%d, %d) ", i_bomb, j_bomb);
+
                 continue;  // Ignorer les cases sur les bords
             }
 
@@ -189,7 +190,13 @@ Position FindNearestBomb(){
             }
         }
     }
-    //gladiator->log("Nearest bomb at (%f, %f), distance: %f", targetBomb.x, targetBomb.y, minDistance);
+        float squareSize = gladiator->maze->getSquareSize();
+
+    // Calcul de la position réelle de la bombe
+    int i_bomb = static_cast<int>((targetBomb.x / squareSize) - 0.5);
+    int j_bomb = static_cast<int>((targetBomb.y / squareSize) - 0.5);
+
+    gladiator->log("Nearest bomb at (%d, %d), distance: %f", i_bomb, j_bomb, minDistance);
 
     return targetBomb;
 }
@@ -208,6 +215,7 @@ void reset()
     // initialisation de toutes vos variables avant le début d'un match
     gladiator->log("Call of reset function"); // GFA 4.5.1
     start = std::chrono::system_clock::now();
+
 
 }
 void dropBomb(){
