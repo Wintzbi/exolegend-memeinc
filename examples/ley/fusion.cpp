@@ -44,7 +44,6 @@ inline float moduloPi(float a) // return angle in [-pi; pi]
 
 void go_to(Position cons, Position pos)
 {
-    dropBomb();
     double consvl, consvr;
     double dx = cons.x - pos.x;
     double dy = cons.y - pos.y;
@@ -207,15 +206,15 @@ Position FindNearestBomb(){
     return targetBomb;
 }
 
-bool avoidDanger(const MazeSquare* neighbor){
-    if(neighbor->danger < 1 ){
+bool avoidDanger(const MazeSquare* neighbor, int value){
+    if(neighbor->danger < value ){
         return 1;
     }
     return 0;
 }
 
 bool canGo(MazeSquare* neighbor){
-    if(neighbor != nullptr && avoidDanger(neighbor)){
+    if(neighbor != nullptr && avoidDanger(neighbor, 1)){
         return 1;
     }
     return 0;
@@ -250,7 +249,7 @@ void dropBomb(){
 }
 
 void boom(const MazeSquare* nearestSquare, unsigned char teamId){
-    if (nearestSquare->possession != teamId && avoidDanger(nearestSquare)){
+    if (nearestSquare->possession != teamId && avoidDanger(nearestSquare,4)){
         gladiator->log("TeamId: %u || Possession: %u", teamId, nearestSquare->possession);
         dropBomb();
     }
@@ -271,6 +270,13 @@ void CheckBombStatuts(){
         if (coin.value < 1 || danger >2){
                 UpdateNearestBomb=true;
             }
+}
+
+void flee(const MazeSquare* nearestSquare, Position position){
+
+    if(avoidDanger(nearestSquare, 3) != 1){
+        go_to({1.5,1.5,0}, position);
+    }
 }
 
 void loop()
