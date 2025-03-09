@@ -25,6 +25,8 @@ int myDanger=0;
 #define MAX_BOMB 50
 Position BombPos[MAX_BOMB];
 
+bool firsttour=true;
+
 // Constantes de contrôle
 
 
@@ -529,6 +531,15 @@ void move_clean() {
 void loop()
 {   
     if (gladiator->game->isStarted()) {
+        if(firsttour){
+        gladiator->log("PRemier tor j'avance un peu");
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0.4);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0.4);
+        delay(1000);
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
+        firsttour=false;
+        }
         move_clean();
         delay(75);
 
