@@ -507,7 +507,12 @@ void loop()
             {
                 gladiator->log("Ennemi proche ! Activation de l'arme folle. 2");
                 arme_fou(300);
-                retreat(); // Vous pouvez ajuster la durée de l'arme folle si nécessaire
+                gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.4);
+                gladiator->control->setWheelSpeed(WheelAxis::RIGHT, -0.4);
+                delay(1000);
+                gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0);
+                gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
+                //retreat(); // Vous pouvez ajuster la durée de l'arme folle si nécessaire
             }
         }
     }
