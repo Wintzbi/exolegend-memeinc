@@ -531,5 +531,6 @@ void loop()
     if (gladiator->game->isStarted()) {
         move_clean();
         delay(75);
+
     }
 }
