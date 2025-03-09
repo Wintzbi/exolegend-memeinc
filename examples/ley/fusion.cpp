@@ -136,7 +136,7 @@ void BombListing() {
             int j_bomb = static_cast<int>((coin.p.y / squareSize) - 0.5);
 
             // Vérification si la case est une limite
-            if (!CheckFuturCase(i_bomb, j_bomb, 6)) {
+            if (!CheckFuturCase(i_bomb, j_bomb, 10)) {
                 continue;  // Ignorer les cases sur les bords
             }
 
@@ -345,7 +345,7 @@ void move_clean() {
     end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end - start;
     time_elapsed =elapsed_seconds.count();
-    Save();
+    //Save();
     //gladiator->log("Temps écoulé %f",time_elapsed);
     RobotData myData = gladiator->robot->getData();
     unsigned char teamId = myData.teamId;
