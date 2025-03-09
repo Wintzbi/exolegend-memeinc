@@ -22,12 +22,12 @@ Position BombPos[MAX_BOMB];
 
 
 
-float kw = 1.2;
+float kw = 1.75;
 float kv = 1.f;
-float wlimit = 3.f;
-float vlimit = 0.6;
-float erreurPos = 0.07;
-float angleThreshold=0.1;
+float wlimit = 3.5f;
+float vlimit = 0.8;
+float erreurPos = 0.10;
+float angleThreshold=0.6;
 
 
 template <typename T1, typename T2>
@@ -341,29 +341,30 @@ void Save(){
 
 void move_clean() {
     end = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end - start;
-        time_elapsed =elapsed_seconds.count();
-        //gladiator->log("Temps écoulé %f",time_elapsed);
-        RobotData myData = gladiator->robot->getData();
-        unsigned char teamId = myData.teamId;
-        const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+    time_elapsed =elapsed_seconds.count();
+    Save();
+    //gladiator->log("Temps écoulé %f",time_elapsed);
+    RobotData myData = gladiator->robot->getData();
+    unsigned char teamId = myData.teamId;
+    const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
 
-        boom(nearestSquare,teamId);
+    boom(nearestSquare,teamId);
 
-        if (UpdateNearestBomb){
-                targetBomb=FindNearestBomb();
-        }
-        
-        if (targetBomb.x != -1 && targetBomb.y != -1) {
-            LastBombToGet=targetBomb;
-            UpdateNearestBomb=false;
-        }
+    if (UpdateNearestBomb){
+            targetBomb=FindNearestBomb();
+    }
+    
+    if (targetBomb.x != -1 && targetBomb.y != -1) {
+        LastBombToGet=targetBomb;
+        UpdateNearestBomb=false;
+    }
 
-        CheckBombStatuts(); // vérifie si on peut toujours aller à la bombe target
+    CheckBombStatuts(); // vérifie si on peut toujours aller à la bombe target
 
-        Position myPosition = gladiator->robot->getData().position;
-        go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
-        //gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
+    Position myPosition = gladiator->robot->getData().position;
+    go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
+    //gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
 }
 
 void loop()
