@@ -1,5 +1,8 @@
 #include "gladiator.h"
 #include <chrono>
+#include <cmath>
+#include <iostream>
+
 
 std::chrono::time_point<std::chrono::system_clock> start, end;
 float time_elapsed;
@@ -10,6 +13,8 @@ void dropBomb();
 bool UpdateNearestBomb=true;
 Position LastBombToGet;
 Position targetBomb = { -1, -1 };
+int forwardDanger=-1;
+int myDanger=0;
 #define MAX_BOMB 50
 Position BombPos[MAX_BOMB];
 
@@ -72,7 +77,7 @@ void go_to(Position cons, Position pos)
     gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
 
-void convert(unsigned int i, unsigned int j) {
+Position convert(unsigned int i, unsigned int j) {
     float squareSize = gladiator->maze->getSquareSize();
 
     Position centerCoor;
@@ -82,11 +87,11 @@ void convert(unsigned int i, unsigned int j) {
 
     Position myPosition = gladiator->robot->getData().position;
     Position goal{centerCoor.x, centerCoor.y, 0};
-    go_to(goal, myPosition);
-}
+    return goal;
+    }
 
-bool CheckFuturCase(int i, int j){
-    Num_tour = floor((time_elapsed+6 ) / 20.f); // Arrondi à l'inférieur
+bool CheckFuturCase(int i, int j,int time){
+    Num_tour = floor((time_elapsed+time ) / 20.f); // Arrondi à l'inférieur
 
     // Récupérer la taille réelle du labyrinthe en cases
     float squareSize = gladiator->maze->getSquareSize();
@@ -94,7 +99,7 @@ bool CheckFuturCase(int i, int j){
     int MazeSize_int = floor(MazeSize / squareSize)-1;
 
     // Log pour débogage
-    gladiator->log("TIme : %f | Numéro tour %d | MazeSize %d | Limites : (%d, %d)",time_elapsed, Num_tour,MazeSize_int,Num_tour,11 - Num_tour);
+    //gladiator->log("TIme : %f | Numéro tour %d | MazeSize %d | Limites : (%d, %d)",time_elapsed, Num_tour,MazeSize_int,Num_tour,11 - Num_tour);
 
     // Vérification des limites du labyrinthe
     if (i <= Num_tour-1 || i >= 12 - Num_tour  || j <= Num_tour-1 || j >= 12 - Num_tour ) {
@@ -117,7 +122,7 @@ void BombListing() {
     // Parcours du labyrinthe (ajustez la taille si nécessaire)
     float MazeSize = gladiator->maze->getCurrentMazeSize();
     int MazeSize_int = static_cast<int>(MazeSize / squareSize);
-    gladiator->log( "MazeSize %d | Limites : (%d, %d)",MazeSize_int,Num_tour,11 - Num_tour);
+    //gladiator->log( "MazeSize %d | Limites : (%d, %d)",MazeSize_int,Num_tour,11 - Num_tour);
 
     for (int i = 0; i < 12; i++) {
         for (int j = 0; j < 12; j++) {
@@ -132,8 +137,8 @@ void BombListing() {
             int j_bomb = static_cast<int>((coin.p.y / squareSize) - 0.5);
             
                 // Vérification si la case est une limite
-                if (!CheckFuturCase(i_bomb, j_bomb) ) {
-                gladiator->log("Bombe hors limites (%d, %d) ", i_bomb, j_bomb);
+                if (!CheckFuturCase(i_bomb, j_bomb,6) ) {
+                //gladiator->log("Bombe hors limites (%d, %d) ", i_bomb, j_bomb);
 
                 continue;  // Ignorer les cases sur les bords
             }
@@ -141,7 +146,7 @@ void BombListing() {
             
 
             // Vérification si la bombe est valide
-            gladiator->log("Donnée de filtres(%d, %d) ", coin.value , danger);
+            //gladiator->log("Donnée de filtres(%d, %d) ", coin.value , danger);
 
             if (coin.value > 0 && danger < 1) {
                 Position posCoin = coin.p;
@@ -182,7 +187,7 @@ Position FindNearestBomb(){
 
     int myPOs_i = static_cast<int>((myData.position.x / squareSize) - 0.5);
     int myPOs_j = static_cast<int>((myData.position.y / squareSize) - 0.5);
-    gladiator->log("Bombs detecte : %d | Nearest bomb at (%d, %d)| Mypos : (%d,%d) | distance: %f", compteurBombes,i_bomb, j_bomb, myPOs_i,myPOs_j,minDistance);
+    //gladiator->log("Bombs detecte : %d | Nearest bomb at (%d, %d)| Mypos : (%d,%d) | distance: %f", compteurBombes,i_bomb, j_bomb, myPOs_i,myPOs_j,minDistance);
 
     return targetBomb;
 }
@@ -231,7 +236,7 @@ void dropBomb(){
 
 void boom(const MazeSquare* nearestSquare, unsigned char teamId){
     if (nearestSquare->possession != teamId && avoidDanger(nearestSquare,4)){
-        gladiator->log("TeamId: %u || Possession: %u", teamId, nearestSquare->possession);
+        //gladiator->log("TeamId: %u || Possession: %u", teamId, nearestSquare->possession);
         dropBomb();
     }
 }
@@ -259,11 +264,84 @@ void flee(const MazeSquare* nearestSquare, Position position){
         go_to({1.5,1.5,0}, position);
     }
 }
+// Fonction pour obtenir la direction vers la cible
+std::string getDirection(Position myPosition, Position targetPosition) {
+    float deltaX = targetPosition.x - myPosition.x;
+    float deltaY = targetPosition.y - myPosition.y;
 
+    if (std::fabs(deltaX) > std::fabs(deltaY)) {
+        return deltaX > 0 ? "right" : "left";
+    } else {
+        return deltaY > 0 ? "up" : "down";
+    }
+}
+
+// Fonction pour obtenir la position devant le robot
+Position getPositionDevant(Position myPosition, float squareSize, const std::string& direction) {
+    Position positionDevant;
+
+    // Calculer les indices de la case actuelle
+    int myPosition_i = static_cast<int>(myPosition.x / squareSize);
+    int myPosition_j = static_cast<int>(myPosition.y / squareSize);
+
+    // Calculer les indices de la case devant le robot
+    if (direction == "up") {
+        positionDevant.x = myPosition_i;
+        positionDevant.y = myPosition_j + 1;
+    } else if (direction == "down") {
+        positionDevant.x = myPosition_i;
+        positionDevant.y = myPosition_j - 1;
+    } else if (direction == "left") {
+        positionDevant.x = myPosition_i - 1;
+        positionDevant.y = myPosition_j;
+    } else if (direction == "right") {
+        positionDevant.x = myPosition_i + 1;
+        positionDevant.y = myPosition_j;
+    } else {
+        return {-1, -1}; // Retourner une position invalide
+    }
+    //gladiator->log("Position du robot = %d,%d et devant le robot : (%f,%f)",myPosition_i,myPosition_j,positionDevant.x,positionDevant.y);
+
+    positionDevant=convert(positionDevant.x,positionDevant.y);
+    return positionDevant;
+}
+
+void Save(){
+    Position myPosition = gladiator->robot->getData().position;
+
+    float squareSize = gladiator->maze->getSquareSize();
+        
+    //Calcul position bombe
+    int myPosition_i= (myPosition.x/squareSize)-0.5;
+    int myPosition_j= (LastBombToGet.y/squareSize)-0.5;
+    const MazeSquare* mySquare = gladiator->maze->getSquare(myPosition_i, myPosition_j);
+    myDanger = mySquare->danger;
+    std::string direction = getDirection(myPosition, LastBombToGet);
+    Position positionDevant = getPositionDevant(myPosition, squareSize, direction);
+    const MazeSquare* forwardSquare = gladiator->maze->getSquare(positionDevant.x, positionDevant.y);
+    forwardDanger = forwardSquare->danger;
+    
+    //gladiator->log("Danger de ma case : %d | Danger de la case devant %d",myDanger,forwardDanger);
+    if(forwardDanger>myDanger || !CheckFuturCase(positionDevant.x,positionDevant.y,2)){
+        /*targetBomb=FindNearestBomb();
+        LastBombToGet=targetBomb;
+        UpdateNearestBomb=false;
+        go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
+*/
+        gladiator->log("ATTENTION LES JEUNES, GRENAAAADE");
+        go_to({1.5,1.5,0},myPosition);
+
+    }
+
+
+
+
+
+}
 void loop()
 {   
     if (gladiator->game->isStarted()) {
-
+        Save();
         end = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         time_elapsed =elapsed_seconds.count();
