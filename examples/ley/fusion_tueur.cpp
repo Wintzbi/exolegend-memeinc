@@ -506,7 +506,7 @@ void loop()
             if (distance < 0.4) // Vous pouvez ajuster ce seuil
             {
                 gladiator->log("Ennemi proche ! Activation de l'arme folle. 2");
-                arme_fou(300);
+                arme_fou(600);
                 gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.4);
                 gladiator->control->setWheelSpeed(WheelAxis::RIGHT, -0.4);
                 delay(1000);
