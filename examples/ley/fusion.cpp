@@ -16,11 +16,12 @@ Position BombPos[MAX_BOMB];
 // Constantes de contrôle
 
 
-float kw = 0.4f;
-float kv = 2.f;
-float wlimit = 0.5f;
-float vlimit = 1.25;
-float erreurPos = 0.05;
+
+float kw = 1.2;
+float kv = 1.f;
+float wlimit = 3.f;
+float vlimit = 0.6;
+float erreurPos = 0.07;
 float angleThreshold=0.1;
 
 
@@ -49,44 +50,24 @@ void go_to(Position cons, Position pos)
     double dy = cons.y - pos.y;
     double d = sqrt(dx * dx + dy * dy);
 
-    // Si la position cible est suffisamment éloignée
     if (d > erreurPos)
     {
         double rho = atan2(dy, dx);
-        double angleDifference = reductionAngle(rho - pos.a);
-        
-        // Si l'angle entre la direction actuelle et la direction cible est trop grand, tourner sur place
-        if (fabs(angleDifference) > angleThreshold) // angleThreshold est un seuil que vous définissez
-        {
-            // Contrôle de la vitesse des roues pour faire tourner le robot sur place
-            double consw = kw * angleDifference;
-            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+        double consw = kw * reductionAngle(rho - pos.a);
 
-            consvl = -consw;  // Roue gauche tourne dans une direction
-            consvr = consw;   // Roue droite tourne dans la direction opposée
-        }
-        else
-        {
-            // Si l'angle est suffisamment petit, le robot peut avancer
-            double consw = kw * angleDifference;
-            double consv = kv * d * cos(angleDifference);
-            
-            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
-            consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
+        double consv = kv * d * cos(reductionAngle(rho - pos.a));
+        consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+        consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
 
-            consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
-            consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
-        }
+        consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+        consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
     }
     else
     {
-        // Si la position est proche de la cible, arrêter le robot
         consvr = 0;
         consvl = 0;
-        UpdateNearestBomb = true;
     }
 
-    // Appliquer les vitesses aux roues
     gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
     gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
