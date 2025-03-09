@@ -122,34 +122,35 @@ void BombListing() {
     // Parcours du labyrinthe (ajustez la taille si nécessaire)
     float MazeSize = gladiator->maze->getCurrentMazeSize();
     int MazeSize_int = static_cast<int>(MazeSize / squareSize);
-    //gladiator->log( "MazeSize %d | Limites : (%d, %d)",MazeSize_int,Num_tour,11 - Num_tour);
 
     for (int i = 0; i < 12; i++) {
         for (int j = 0; j < 12; j++) {
             const MazeSquare* indexedSquare = gladiator->maze->getSquare(i, j);
             Coin coin = indexedSquare->coin;
             int danger = indexedSquare->danger;
-            if(coin.value<1){
+            if(coin.value < 1){
                 continue;
             }
             // Calcul de la position réelle de la bombe
             int i_bomb = static_cast<int>((coin.p.x / squareSize) - 0.5);
             int j_bomb = static_cast<int>((coin.p.y / squareSize) - 0.5);
-            
-                // Vérification si la case est une limite
-                if (!CheckFuturCase(i_bomb, j_bomb,6) ) {
-                //gladiator->log("Bombe hors limites (%d, %d) ", i_bomb, j_bomb);
 
+            // Vérification si la case est une limite
+            if (!CheckFuturCase(i_bomb, j_bomb, 6)) {
                 continue;  // Ignorer les cases sur les bords
             }
-            
-            
 
             // Vérification si la bombe est valide
-            //gladiator->log("Donnée de filtres(%d, %d) ", coin.value , danger);
-
             if (coin.value > 0 && danger < 1) {
                 Position posCoin = coin.p;
+
+                // Vérification si la bombe est à une case de la dernière bombe déposée
+                int lastBomb_i = static_cast<int>((LastBombToGet.x / squareSize) - 0.5);
+                int lastBomb_j = static_cast<int>((LastBombToGet.y / squareSize) - 0.5);
+                if (abs(i_bomb - lastBomb_i) <= 1 && abs(j_bomb - lastBomb_j) <= 1) {
+                    continue;  // Ignorer les bombes à une case de la dernière bombe déposée
+                }
+
                 if (index < MAX_BOMB) {
                     BombPos[index] = posCoin;  // Ajouter la bombe à la liste
                     index++;  // Incrémenter l'indice
@@ -158,6 +159,7 @@ void BombListing() {
         }
     }
 }
+
 
 
 Position FindNearestBomb(){
