@@ -2,7 +2,14 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+//////////////CODE THOMAS////////////////////
+#include "vector2.hpp"
+#include <vector>
+#include <array>
 
+void retreat();
+void arme_fou(int duree);
+/////////////////////////////////////////////
 
 std::chrono::time_point<std::chrono::system_clock> start, end;
 float time_elapsed;
@@ -214,6 +221,9 @@ void setup()
     gladiator = new Gladiator();
     // enregistrement de la fonction de reset qui s'éxecute à chaque fois avant qu'une partie commence
     gladiator->game->onReset(&reset); // GFA 4.4.1
+    // Initialisation du servo
+    gladiator->weapon->initWeapon(WeaponPin::M1, WeaponMode::SERVO);
+    gladiator->weapon->setTarget(WeaponPin::M1, 80);
 }
 
 void reset()
@@ -335,10 +345,154 @@ void Save(){
 
     }
 
+}
+
+
+////////////////////////////CODE THOMAS///////////////////////////////////
+
+bool isRobotStuck()
+{
+    static Position lastPosition = gladiator->robot->getData().position;
+    static unsigned long lastMoveTime = millis();
+
+    Position currentPosition = gladiator->robot->getData().position;
+    double dx = currentPosition.x - lastPosition.x;
+    double dy = currentPosition.y - lastPosition.y;
+    double distance = sqrt(dx * dx + dy * dy);
+
+    if (distance > 0.1)
+    {
+        lastPosition = currentPosition;
+        lastMoveTime = millis();
+    }
+
+    return (millis() - lastMoveTime) > 2000;
+}
+
+void retreat()
+{
+    if (isRobotStuck())
+    {
+        gladiator->log("Robot bloqué, activation de la retraite !");
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.4);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, -0.4);
+        delay(200);
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, -0.4);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
+        delay(200);
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, 0);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
+    }
+}
+void arme_fou(int duree)
+{
+    while (duree > 0)
+    {
+        gladiator->weapon->setTarget(WeaponPin::M1, 135);
+        delay(100);
+        gladiator->weapon->setTarget(WeaponPin::M1, 50);
+        delay(100);
+        duree -= 200;
+    }
+    gladiator->weapon->setTarget(WeaponPin::M1, 95);
+}
 
 
 
+struct PositionEx
+{
+    Vector2 pos;
+    bool isEnnemy;
+    int life_ennemies;
+};
 
+std::vector<PositionEx> ennemies{};
+
+std::array<PositionEx, 4>
+fetchEnnemyRobotsData()
+{
+    std::array<PositionEx, 4> res{};
+    RobotList robotsIds = gladiator->game->getPlayingRobotsId();
+    for (int i = 0; i < 4; ++i)
+    {
+        RobotData other = gladiator->game->getOtherRobotData(robotsIds.ids[i]);
+        res.at(i).isEnnemy = other.teamId != gladiator->robot->getData().teamId;
+        res.at(i).pos = {other.position.x, other.position.y};
+        res.at(i).life_ennemies = other.lifes;
+    }
+    return res;
+}
+
+PositionEx findNearest(std::vector<PositionEx> ennemies) // renvoie la chose la plus proche
+{
+    float min = 100000.f;
+    PositionEx nearest{};
+    const Position robotPos = gladiator->robot->getData().position;
+    for (auto ennemy : ennemies)
+    {
+        const float dist = std::sqrt((robotPos.x - ennemy.pos.x()) * (robotPos.x - ennemy.pos.x()) + (robotPos.y - ennemy.pos.y()) * (robotPos.y - ennemy.pos.y()));
+        if (dist < min)
+        {
+            min = dist;
+            nearest = ennemy;
+        }
+    }
+    return nearest;
+}
+
+Position getNearestEnnemy()
+{ // renvoie l'énemie le plus proche
+    ennemies.clear();
+    const std::array<PositionEx, 4> robots = fetchEnnemyRobotsData();
+    for (auto rpos : robots)
+    {
+        if (rpos.isEnnemy && rpos.life_ennemies)
+        {
+            // gladiator->log("état vie adverse :%f", rpos.life_ennemies);
+            ennemies.push_back(rpos);
+        }
+    }
+
+    if (ennemies.size() > 0)
+    {
+        // gladiator->log("ennemies size :%f", ennemies.size());
+        PositionEx nearestEnnemy = findNearest(ennemies);
+        return Position{nearestEnnemy.pos.x(), nearestEnnemy.pos.y()};
+    }
+    return {0.f};
+}
+
+bool limite_maze(Position target)
+{
+    if ((float)target.x > 0 &&
+        (float)target.x < gladiator->maze->getSize() &&
+        (float)target.y > 0 && (float)target.y < gladiator->maze->getSize())
+    {
+        gladiator->log("Cible dans le terrain");
+        return true;
+    }
+
+    return false; // Added this line
+}
+void detectEnnemy(){
+        Position myPosition = gladiator->robot->getData().position;
+
+    /////////////////CODE THOMAS///////////////////////////////
+            Position target = getNearestEnnemy();
+    // Vérification de la distance
+            double dx = target.x - myPosition.x;
+            double dy = target.y - myPosition.y;
+            double distance = sqrt(dx * dx + dy * dy);
+
+            // Si l'ennemi est suffisamment proche, déclenche l'arme folle
+            if (distance < 0.3) // Vous pouvez ajuster ce seuil
+            {
+                gladiator->log("Ennemi proche ! Activation de l'arme folle. 2");
+                arme_fou(300);
+                retreat(); // Vous pouvez ajuster la durée de l'arme folle si nécessaire
+            }
+
+    ///////////////////////////////////////////////////////////
 }
 
 void move_clean() {
@@ -363,8 +517,11 @@ void move_clean() {
     }
 
     CheckBombStatuts(); // vérifie si on peut toujours aller à la bombe target
+        Position myPosition = gladiator->robot->getData().position;
 
-    Position myPosition = gladiator->robot->getData().position;
+    detectEnnemy();
+
+
     go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
     //gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
 }
@@ -372,7 +529,6 @@ void move_clean() {
 void loop()
 {   
     if (gladiator->game->isStarted()) {
-
         move_clean();
         delay(75);
     }
