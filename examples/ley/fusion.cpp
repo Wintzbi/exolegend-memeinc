@@ -338,11 +338,9 @@ void Save(){
 
 
 }
-void loop()
-{   
-    if (gladiator->game->isStarted()) {
-        Save();
-        end = std::chrono::system_clock::now();
+
+void move_clean() {
+    end = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         time_elapsed =elapsed_seconds.count();
         //gladiator->log("Temps écoulé %f",time_elapsed);
@@ -366,6 +364,13 @@ void loop()
         Position myPosition = gladiator->robot->getData().position;
         go_to({LastBombToGet.x,LastBombToGet.y,0},myPosition);
         //gladiator->log("Tracking bomb at (%f, %f)", LastBombToGet.x, LastBombToGet.y);
+}
+
+void loop()
+{   
+    if (gladiator->game->isStarted()) {
+
+        move_clean();
         delay(75);
     }
 }

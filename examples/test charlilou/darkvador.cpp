@@ -1,9 +1,10 @@
 #include "gladiator.h"
 #include "Vector2.hpp"
-#include <chrono>
-
-Gladiator *gladiator;
-bool robot1 = false;
+#include <vector>
+#include <array>
+#include <math.h>
+#include <cmath>
+#undef abs
 
 void reset();
 void loop();
@@ -12,23 +13,33 @@ void arme_fou(int duree);
 void shouldGo();
 void dropBomb();
 void boom();
+void reductionAngle();
+
+Gladiator *gladiator;
 
 float kw = 0.4f;
 float kv = 2.f;
 float wlimit = 0.5f;
-float vlimit = 1.5;
+float vlimit = 1.25;
 float erreurPos = 0.05;
-float angleThreshold = 0.1;
+float angleThreshold=0.1;
 
-
-std::chrono::time_point<std::chrono::system_clock> start, end;
-float time_elapsed;
-int Num_tour = 0;
+double reductionAngle(double x)
+{
+    x = fmod(x + PI, 2 * PI);
+    if (x < 0)
+        x += 2 * PI;
+    return x - PI;
+}
 
 void setup()
 {
     gladiator = new Gladiator();
     gladiator->game->onReset(&reset);
+
+    // Initialisation du servo
+    gladiator->weapon->initWeapon(WeaponPin::M1, WeaponMode::SERVO);
+    gladiator->weapon->setTarget(WeaponPin::M1, 80);
 }
 
 void dropBomb(){
@@ -38,7 +49,6 @@ void dropBomb(){
             gladiator->weapon->dropBombs(1);
             gladiator->log("Drop bomb");
         }
-    
 }
 
 bool avoidDanger(const MazeSquare* neighbor){
@@ -88,14 +98,6 @@ void retreat()
         gladiator->control->setWheelSpeed(WheelAxis::RIGHT, 0);
     }
 }
-
-void reset()
-{
-    gladiator->log("Robot reset successfully");
-    Position startPosition = gladiator->robot->getData().position;
-    robot1 = (startPosition.x < 0.4);
-}
-
 void arme_fou(int duree)
 {
     gladiator->control->setWheelSpeed(WheelAxis::LEFT, 1);
@@ -125,6 +127,149 @@ void shouldGo()
     }
 }
 
+inline float moduloPi(float a) // return angle in [-pi; pi]
+{
+    return (a < 0.0) ? (std::fmod(a - M_PI, 2 * M_PI) + M_PI) : (std::fmod(a + M_PI, 2 * M_PI) - M_PI);
+}
+inline bool aim(Gladiator *gladiator, const Vector2 &target, bool showLogs)
+{
+    constexpr float ANGLE_REACHED_THRESHOLD = 0.05;
+    constexpr float POS_REACHED_THRESHOLD = 0.20;
+
+    auto posRaw = gladiator->robot->getData().position;
+    Vector2 pos{posRaw.x, posRaw.y};
+
+    Vector2 posError = target - pos;
+
+    float targetAngle = posError.angle();
+    float angleError = moduloPi(targetAngle - posRaw.a);
+
+    bool targetReached = false;
+    float leftCommand = 0.f;
+    float rightCommand = 0.f;
+
+    if (posError.norm2() < POS_REACHED_THRESHOLD) //
+    {
+        gladiator->log("Ennemi proche ! Activation de l'arme folle. 1");
+        arme_fou(300);
+        retreat();
+    }
+
+    else if (std::abs(angleError) > ANGLE_REACHED_THRESHOLD)
+    {
+        float factor = 0.35;
+        if (angleError < 0)
+            factor = -factor;
+        rightCommand = factor;
+        leftCommand = -factor;
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, leftCommand);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, rightCommand);
+    }
+    else
+    {
+        float factor = 0.75;
+        rightCommand = factor + angleError * 0.1; //+angleError*0.1  => terme optionel, "pseudo correction angulaire";
+        leftCommand = factor - angleError * 0.1;  //-angleError*0.1   => terme optionel, "pseudo correction angulaire";
+        gladiator->control->setWheelSpeed(WheelAxis::LEFT, leftCommand);
+        gladiator->control->setWheelSpeed(WheelAxis::RIGHT, rightCommand);
+    }
+
+    if (showLogs || targetReached)
+    {
+        gladiator->log("ta %f, ca %f, ea %f, tx %f cx %f ex %f ty %f cy %f ey %f", targetAngle, posRaw.a, angleError, target.x(), pos.x(), posError.x(), target.y(), pos.y(), posError.y());
+    }
+
+    return targetReached;
+}
+
+/******************************************/
+
+struct PositionEx
+{
+    Vector2 pos;
+    bool isEnnemy;
+    int life_ennemies;
+};
+
+std::vector<PositionEx> ennemies{};
+
+std::array<PositionEx, 4>
+fetchEnnemyRobotsData()
+{
+    std::array<PositionEx, 4> res{};
+    RobotList robotsIds = gladiator->game->getPlayingRobotsId();
+    for (int i = 0; i < 4; ++i)
+    {
+        RobotData other = gladiator->game->getOtherRobotData(robotsIds.ids[i]);
+        res.at(i).isEnnemy = other.teamId != gladiator->robot->getData().teamId;
+        res.at(i).pos = {other.position.x, other.position.y};
+        res.at(i).life_ennemies = other.lifes;
+    }
+    return res;
+}
+
+PositionEx findNearest(std::vector<PositionEx> ennemies) // renvoie la chose la plus proche
+{
+    float min = 100000.f;
+    PositionEx nearest{};
+    const Position robotPos = gladiator->robot->getData().position;
+    for (auto ennemy : ennemies)
+    {
+        const float dist = std::sqrt((robotPos.x - ennemy.pos.x()) * (robotPos.x - ennemy.pos.x()) + (robotPos.y - ennemy.pos.y()) * (robotPos.y - ennemy.pos.y()));
+        if (dist < min)
+        {
+            min = dist;
+            nearest = ennemy;
+        }
+    }
+    return nearest;
+}
+
+Position getNearestEnnemy()
+{ // renvoie l'énemie le plus proche
+    ennemies.clear();
+    const std::array<PositionEx, 4> robots = fetchEnnemyRobotsData();
+    for (auto rpos : robots)
+    {
+        if (rpos.isEnnemy && rpos.life_ennemies)
+        {
+            // gladiator->log("état vie adverse :%f", rpos.life_ennemies);
+            ennemies.push_back(rpos);
+        }
+    }
+
+    if (ennemies.size() > 0)
+    {
+        // gladiator->log("ennemies size :%f", ennemies.size());
+        PositionEx nearestEnnemy = findNearest(ennemies);
+        return Position{nearestEnnemy.pos.x(), nearestEnnemy.pos.y()};
+    }
+    return {0.f};
+}
+
+bool limite_maze(Position target)
+{
+    if ((float)target.x > 0 &&
+        (float)target.x < gladiator->maze->getSize() &&
+        (float)target.y > 0 && (float)target.y < gladiator->maze->getSize())
+    {
+        gladiator->log("Cible dans le terrain");
+        return true;
+    }
+
+    return false; // Added this line
+}
+
+void reset()
+{
+    gladiator->log("Robot reset successfully");
+    Position startPosition = gladiator->robot->getData().position;
+}
+
+
+/******************************************/
+
+
 void go_to(Position cons, Position pos)
 {
     double consvl, consvr;
@@ -132,110 +277,76 @@ void go_to(Position cons, Position pos)
     double dy = cons.y - pos.y;
     double d = sqrt(dx * dx + dy * dy);
 
-    if (d > erreurPos) // Suivi direct de l'ennemi avec précision
+    // Si la position cible est suffisamment éloignée
+    if (d > erreurPos)
     {
-        double rho = atan2(dy, dx);  // Direction vers l'ennemi
-        double angleDifference = rho - pos.a;
-
-        if (fabs(angleDifference) > angleThreshold)
+        double rho = atan2(dy, dx);
+        double angleDifference = reductionAngle(rho - pos.a);
+        
+        // Si l'angle entre la direction actuelle et la direction cible est trop grand, tourner sur place
+        if (fabs(angleDifference) > angleThreshold) // angleThreshold est un seuil que vous définissez
         {
-            // Rotation du robot
+            // Contrôle de la vitesse des roues pour faire tourner le robot sur place
             double consw = kw * angleDifference;
-            consw = (fabs(consw) > wlimit) ? (consw > 0 ? wlimit : -wlimit) : consw;
-            consvl = -consw;
-            consvr = consw;
+            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+
+            consvl = -consw;  // Roue gauche tourne dans une direction
+            consvr = consw;   // Roue droite tourne dans la direction opposée
         }
         else
         {
-            // Déplacement vers l'ennemi
-            double consv = kv * d;
-            consv = (fabs(consv) > vlimit) ? (consv > 0 ? vlimit : -vlimit) : consv;
+            // Si l'angle est suffisamment petit, le robot peut avancer
+            double consw = kw * angleDifference;
+            double consv = kv * d * cos(angleDifference);
+            
+            consw = abs(consw) > wlimit ? (consw > 0 ? 1 : -1) * wlimit : consw;
+            consv = abs(consv) > vlimit ? (consv > 0 ? 1 : -1) * vlimit : consv;
 
-            consvl = consv - gladiator->robot->getRobotRadius() * 0;
-            consvr = consv + gladiator->robot->getRobotRadius() * 0;
+            consvl = consv - gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
+            consvr = consv + gladiator->robot->getRobotRadius() * consw; // GFA 3.6.2
         }
     }
     else
     {
+        // Si la position est proche de la cible, arrêter le robot
         consvr = 0;
         consvl = 0;
     }
 
-    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false);
-    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);
+    // Appliquer les vitesses aux roues
+    gladiator->control->setWheelSpeed(WheelAxis::RIGHT, consvr, false); // GFA 3.2.1
+    gladiator->control->setWheelSpeed(WheelAxis::LEFT, consvl, false);  // GFA 3.2.1
 }
 
 void loop()
 {
     if (gladiator->game->isStarted())
-    {
-        shouldGo();
-
-        
-   
-
-        RobotData myData = gladiator->robot->getData();
-        RobotList robotList = gladiator->game->getPlayingRobotsId();
-        RobotData enemyData{};
-        bool enemyFound = false;
-        unsigned char teamId = myData.teamId;
-        const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();  
-        boom(nearestSquare,teamId);
-
-
-        static uint8_t lastTrackedEnemy = 0;  // Stocke l'ID du dernier ennemi traqué
-
-        for (uint8_t id : robotList.ids)
+    { // tester si un match à déjà commencer
+        // code de votre stratégie
+        Position myPosition = gladiator->robot->getData().position;
+        Position target = getNearestEnnemy();
+        if (target.x == 0 && target.y == 0) // plus d'enemie
         {
-            if (id != 0 && id != myData.id)
-            {
-                enemyData = gladiator->game->getOtherRobotData(id);
-                if (enemyData.lifes > 0)
-                {
-                    if (lastTrackedEnemy != 0 && lastTrackedEnemy != id)
-                    {
-                        gladiator->log("L'ennemi précédent est mort, retraite !");
-                        retreat();  // Fait reculer le robot avant de changer de cible
-                    }
-                    lastTrackedEnemy = id;
-                    enemyFound = true;
-                    break;
-                }
-            }
+            target = {1.5, 1.5, 0}; // rajouter code ley
         }
-        
-        // Si aucun ennemi trouvé, on réinitialise le dernier ennemi suivi
-        if (!enemyFound)
-        {
-            lastTrackedEnemy = 0;
 
-        }
-        
+        if (limite_maze(target)) { // Ennemie dans la map
+            Position goal{target.x, target.y, 0};
+            go_to(goal, myPosition);
 
-        if (enemyFound)
-        {
-            double dx = enemyData.position.x - myData.position.x;
-            double dy = enemyData.position.y - myData.position.y;
+            // Vérification de la distance
+            double dx = target.x - myPosition.x;
+            double dy = target.y - myPosition.y;
             double distance = sqrt(dx * dx + dy * dy);
 
-            if (distance < 0.2)
+            // Si l'ennemi est suffisamment proche, déclenche l'arme folle
+            if (distance < 0.2) // Vous pouvez ajuster ce seuil
             {
-                gladiator->log("Ennemi proche ! Activation de l'arme folle.");
-                arme_fou(200); // Utilise l'arme folle si proche
-                go_to(enemyData.position, myData.position);  // Suivi précis tout en attaquant
-            }
-            else
-            {
-                go_to(enemyData.position, myData.position);  // Suivi droit de l'ennemi
-                gladiator->log("Tracking enemy at (%f, %f)", enemyData.position.x, enemyData.position.y);
+                gladiator->log("Ennemi proche ! Activation de l'arme folle. 2");
+                arme_fou(300);
+                retreat(); // Vous pouvez ajuster la durée de l'arme folle si nécessaire
             }
         }
-        else
-        {
-            gladiator->log("Aucun ennemi détecté");
-        }
-
-        retreat();
-        delay(100);
     }
+    delay(10);
 }
